@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * Example configuration file for Qliro API tests
+ *
+ * Copy this file to config.php and update with your own credentials. Used to make actual api requests in tests.
+ */
+
+return [
+    // Your Qliro API credentials
+    'api_key' => 'your_api_key',
+    'api_secret' => 'your_api_secret',
+];
