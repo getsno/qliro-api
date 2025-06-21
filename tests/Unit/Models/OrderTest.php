@@ -115,7 +115,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test getting original order amount (should sum only Preauthorization transactions)
-        $amount = $order->getOriginalOrderAmount();
+        $amount = $order->amountOriginal();
         $this->assertEquals(150.0, $amount);
     }
 
@@ -150,7 +150,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test getting captured amount (should sum only Capture transactions)
-        $amount = $order->getCapturedAmount();
+        $amount = $order->amountCaptured();
         $this->assertEquals(150.0, $amount);
     }
 
@@ -185,7 +185,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test getting refunded amount (should sum only Refund transactions)
-        $amount = $order->getRefundedAmount();
+        $amount = $order->amountRefunded();
         $this->assertEquals(50.0, $amount);
     }
 
@@ -220,7 +220,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test getting cancelled amount (should sum only Reversal transactions)
-        $amount = $order->getCancelledAmount();
+        $amount = $order->amountCancelled();
         $this->assertEquals(50.0, $amount);
     }
 
@@ -255,7 +255,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test getting remaining amount (should be original - captured - cancelled)
-        $amount = $order->getRemainingAmount();
+        $amount = $order->amountRemaining();
         $this->assertEquals(30.0, $amount);
     }
 
@@ -295,7 +295,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test getting total amount (should be captured - refunded + remaining)
-        $amount = $order->getTotalAmount();
+        $amount = $order->amountTotal();
         $this->assertEquals(150.0, $amount);
     }
 
@@ -313,12 +313,12 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test all amount methods return 0.0 when there are no transactions
-        $this->assertEquals(0.0, $order->getOriginalOrderAmount());
-        $this->assertEquals(0.0, $order->getCapturedAmount());
-        $this->assertEquals(0.0, $order->getRefundedAmount());
-        $this->assertEquals(0.0, $order->getCancelledAmount());
-        $this->assertEquals(0.0, $order->getRemainingAmount());
-        $this->assertEquals(0.0, $order->getTotalAmount());
+        $this->assertEquals(0.0, $order->amountOriginal());
+        $this->assertEquals(0.0, $order->amountCaptured());
+        $this->assertEquals(0.0, $order->amountRefunded());
+        $this->assertEquals(0.0, $order->amountCancelled());
+        $this->assertEquals(0.0, $order->amountRemaining());
+        $this->assertEquals(0.0, $order->amountTotal());
     }
 
     /**
@@ -335,7 +335,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Test currentOrderItems returns empty array when there are no actions
-        $this->assertEmpty($order->currentOrderItems());
+        $this->assertEmpty($order->itemsCurrent());
     }
 
     /**
@@ -428,7 +428,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Get current order items
-        $currentItems = $order->currentOrderItems();
+        $currentItems = $order->itemsCurrent();
 
         // Test number of items (should be 3: PROD-1 with price 100, PROD-3, and PROD-1 with price 80)
         $this->assertCount(3, $currentItems);

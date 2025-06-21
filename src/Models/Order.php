@@ -157,7 +157,7 @@ class Order
         return null;
     }
 
-    public function getOriginalOrderAmount() : float
+    public function amountOriginal() : float
     {
         $transactions = $this->paymentTransactions();
         if (!$transactions) {
@@ -174,7 +174,7 @@ class Order
         return $total;
     }
 
-    public function getCapturedAmount(): float
+    public function amountCaptured(): float
     {
         $transactions = $this->paymentTransactions();
         if (!$transactions) {
@@ -191,7 +191,7 @@ class Order
         return $total;
     }
 
-    public function getRefundedAmount(): float
+    public function amountRefunded(): float
     {
         $transactions = $this->paymentTransactions();
         if (!$transactions) {
@@ -208,7 +208,7 @@ class Order
         return $total;
     }
 
-    public function getCancelledAmount(): float
+    public function amountCancelled(): float
     {
         $transactions = $this->paymentTransactions();
         if (!$transactions) {
@@ -225,14 +225,14 @@ class Order
         return $total;
     }
 
-    public function getRemainingAmount(): float
+    public function amountRemaining(): float
     {
-        return $this->getOriginalOrderAmount() - $this->getCapturedAmount() - $this->getCancelledAmount();
+        return $this->amountOriginal() - $this->amountCaptured() - $this->amountCancelled();
     }
 
-    public function getTotalAmount(): float
+    public function amountTotal(): float
     {
-        return $this->getCapturedAmount() - $this->getRefundedAmount() + $this->getRemainingAmount();
+        return $this->amountCaptured() - $this->amountRefunded() + $this->amountRemaining();
     }
 
     /**
@@ -240,7 +240,7 @@ class Order
      *
      * @return OrderItemDto[] Array of current order items with adjusted quantities
      */
-    public function currentOrderItems(): array
+    public function itemsCurrent(): array
     {
         $orderItemActions = $this->orderItemActions();
         if (!$orderItemActions) {
@@ -311,28 +311,55 @@ class Order
         return $currentItems;
     }
 
-    public function cancelledOrderItems(): array
+    public function itemsCancelled(): array
     {
-        //based on OrderItemActions from dto need to find OrderItemActions with OrderItemActionType "Reserve" and provide an array of OrderItemDtos
-        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        return $this->getOrderItemsByActionType(OrderItemActionType::Release);
     }
 
-    public function refundedOrderItems(): array
+    public function itemsRefunded(): array
     {
-        //based on OrderItemActions from dto need to find OrderItemActions with OrderItemActionType "Return" and provide an array of OrderItemDtos
-        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        return $this->getOrderItemsByActionType(OrderItemActionType::Return);
     }
 
-    public function capturedOrderItems(): array
+    public function itemsCaptured(): array
     {
-        //based on OrderItemActions from dto need to find OrderItemActions with OrderItemActionType "Ship" and provide an array of OrderItemDtos
-        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        return $this->getOrderItemsByActionType(OrderItemActionType::Ship);
     }
 
-    public function reservedOrderItems(): array
+    public function itemsReserved(): array
     {
-        //based on OrderItemActions from dto need to find OrderItemActions with OrderItemActionType "Reserve" and provide array of OrderItemDtos
-        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        return $this->getOrderItemsByActionType(OrderItemActionType::Reserve);
+    }
+
+    protected function getOrderItemsByActionType(OrderItemActionType $actionType): array
+    {
+        $orderItemActions = $this->orderItemActions();
+        if (!$orderItemActions) {
+            return [];
+        }
+
+        $filteredItems = [];
+        foreach ($orderItemActions as $action) {
+            // Skip actions without required fields
+            if (!$action->MerchantReference || $action->PricePerItemExVat === null || $action->Quantity === null) {
+                continue;
+            }
+
+            // Filter actions by Reserve type
+            if ($action->ActionType === $actionType->value) {
+                $filteredItems[] = new OrderItemDto(
+                    Description: $action->Description,
+                    MerchantReference: $action->MerchantReference,
+                    PaymentTransactionId: $action->PaymentTransactionId,
+                    PricePerItemExVat: $action->PricePerItemExVat,
+                    PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
+                    Quantity: $action->Quantity,
+                    Type: $action->Type ?? 'Product',
+                    VatRate: $action->VatRate
+                );
+            }
+        }
+        return $filteredItems;
     }
 
 }
