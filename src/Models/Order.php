@@ -228,4 +228,13 @@ class Order
         return $this->getOriginalOrderAmount() - $this->getCapturedAmount();
     }
 
+    public function currentOrderItems()
+    {
+        //need to find all orderItmeActions with type = Reserve.
+        //as identity of item we need to use MerchantReference and PricePerItemExVat
+        // then need to filter out all orderItemAction with same identity, and OrderItemAction Type in (Ship,Release)
+        // need to check Qty of shipped and Released items and keep only Reserved items with leftover qties.
+        //based on leftover OrderItemActions we need to return array of OrderItemDto with proper info an qty
+    }
+
 }
