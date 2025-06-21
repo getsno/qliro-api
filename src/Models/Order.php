@@ -155,9 +155,29 @@ class Order
         return null;
     }
 
-    public function getOriginalOrderAmount()
+    public function getOriginalOrderAmount() : float
     {
-        //need to summaraze amount from all transaction with Type='Preauthorization'
+        //need to summaraze amount from all transactions with Type='Preauthorization'
+    }
+
+    public function getCapturedAmount(): float
+    {
+        //need to summaraze amount from all transactions with Type='Capture'
+    }
+
+    public function getRefundedAmount(): float
+    {
+        //need to summaraze amount from all transactions with Type='Refund'
+    }
+
+    public function getCancelledAmount(): float
+    {
+        //need to summaraze amount from all transactions with Type='Reversal'
+    }
+
+    public function getRemainingAmount(): float
+    {
+        return $this->getOriginalOrderAmount() - $this->getCapturedAmount();
     }
 
 }
