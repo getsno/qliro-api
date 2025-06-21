@@ -240,18 +240,63 @@ class OrderTest extends QliroApiTestCase
             PaymentTransactionId: 456,
             Type: 'Capture'
         );
+        $transaction3 = new PaymentTransactionDto(
+            Amount: 20.0,
+            PaymentTransactionId: 789,
+            Type: 'Reversal'
+        );
 
         // Create order DTO with transactions
         $orderDto = new AdminOrderDetailsDto(
-            PaymentTransactions: [$transaction1, $transaction2]
+            PaymentTransactions: [$transaction1, $transaction2, $transaction3]
         );
 
         // Create order model
         $order = new Order($orderDto);
 
-        // Test getting remaining amount (should be original - captured)
+        // Test getting remaining amount (should be original - captured - cancelled)
         $amount = $order->getRemainingAmount();
-        $this->assertEquals(50.0, $amount);
+        $this->assertEquals(30.0, $amount);
+    }
+
+    /**
+     * Test getTotalAmount calculation
+     */
+    public function testGetTotalAmount(): void
+    {
+        // Create payment transactions
+        $transaction1 = new PaymentTransactionDto(
+            Amount: 200.0,
+            PaymentTransactionId: 123,
+            Type: 'Preauthorization'
+        );
+        $transaction2 = new PaymentTransactionDto(
+            Amount: 150.0,
+            PaymentTransactionId: 456,
+            Type: 'Capture'
+        );
+        $transaction3 = new PaymentTransactionDto(
+            Amount: 20.0,
+            PaymentTransactionId: 789,
+            Type: 'Reversal'
+        );
+        $transaction4 = new PaymentTransactionDto(
+            Amount: 30.0,
+            PaymentTransactionId: 101,
+            Type: 'Refund'
+        );
+
+        // Create order DTO with transactions
+        $orderDto = new AdminOrderDetailsDto(
+            PaymentTransactions: [$transaction1, $transaction2, $transaction3, $transaction4]
+        );
+
+        // Create order model
+        $order = new Order($orderDto);
+
+        // Test getting total amount (should be captured - refunded + remaining)
+        $amount = $order->getTotalAmount();
+        $this->assertEquals(150.0, $amount);
     }
 
     /**
@@ -273,6 +318,7 @@ class OrderTest extends QliroApiTestCase
         $this->assertEquals(0.0, $order->getRefundedAmount());
         $this->assertEquals(0.0, $order->getCancelledAmount());
         $this->assertEquals(0.0, $order->getRemainingAmount());
+        $this->assertEquals(0.0, $order->getTotalAmount());
     }
 
     /**

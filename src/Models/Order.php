@@ -227,7 +227,12 @@ class Order
 
     public function getRemainingAmount(): float
     {
-        return $this->getOriginalOrderAmount() - $this->getCapturedAmount();
+        return $this->getOriginalOrderAmount() - $this->getCapturedAmount() - $this->getCancelledAmount();
+    }
+
+    public function getTotalAmount(): float
+    {
+        return $this->getCapturedAmount() - $this->getRefundedAmount() + $this->getRemainingAmount();
     }
 
     /**
