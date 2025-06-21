@@ -311,4 +311,32 @@ class Order
         return $currentItems;
     }
 
+    public function cancelledOrderItems(): array
+    {
+        //based on OrderItemActions from dto need to find Items with type "Reversal" and provide an array of OrderItemDtos
+        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        //because cancelation may be used in different transactions
+    }
+
+    public function refundedOrderItems(): array
+    {
+        //based on OrderItemActions from dto need to find Items with type "Refund" and provide an array of OrderItemDtos
+        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        //because cancelation may be used in different transactions
+    }
+
+    public function capturedOrderItems(): array
+    {
+        //based on OrderItemActions from dto need to find Items with type "Capture" and provide an array of OrderItemDtos
+        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        //because cancelation may be used in different transactions
+    }
+
+    public function reservedOrderItems(): array
+    {
+        //based on OrderItemActions from dto need to find Items with type "Reserve" and provide array of OrderItemDtos
+        //as identity, we should use MerchantReference and PricePerItemExVat and PaymentTransactionId
+        //because cancelation may be used in different transactions
+    }
+
 }
