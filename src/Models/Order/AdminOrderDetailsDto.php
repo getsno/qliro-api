@@ -13,8 +13,9 @@ readonly class AdminOrderDetailsDto
         public ?AddressDto  $ShippingAddress = null,
         public ?CustomerDto $Customer = null,
         public ?array       $PaymentTransactions = null,
+        /** @var OrderItemActionDto[]|null */
         public ?array       $OrderItemActions = null,
-        /** @var MerchantProvidedMetadataDto[] */
+        /** @var MerchantProvidedMetadataDto[]|null */
         public ?array       $MerchantProvidedMetadata = null,
         public ?array       $IdentityVerification = null,
         public ?array       $Upsell = null,
@@ -40,12 +41,23 @@ readonly class AdminOrderDetailsDto
                 $data->MerchantProvidedMetadata
             );
         }
+
+        // Convert OrderItemActions array to OrderItemActionDto objects
+        $orderItemActions = null;
+        if (isset($data->OrderItemActions) && is_array($data->OrderItemActions)) {
+            $orderItemActions = array_map(
+                static fn($item) => OrderItemActionDto::fromStdClass($item),
+                $data->OrderItemActions
+            );
+        }
+
         $normalizeData = static function ($field) use ($data) {
             if (!isset($data->$field)) {
                 return null;
             }
             return is_array($data->$field) ? (object)$data->$field : $data->$field;
         };
+
         return new self(
             OrderId: $data->OrderId ?? null,
             MerchantReference: $data->MerchantReference ?? null,
@@ -55,7 +67,7 @@ readonly class AdminOrderDetailsDto
             ShippingAddress: AddressDto::fromStdClass($normalizeData('ShippingAddress')),
             Customer: CustomerDto::fromStdClass($normalizeData('Customer')),
             PaymentTransactions: $data->PaymentTransactions ?? null,
-            OrderItemActions: $data->OrderItemActions ?? null,
+            OrderItemActions: $orderItemActions,
             MerchantProvidedMetadata: $merchantProvidedMetadata,
             IdentityVerification: $data->IdentityVerification ?? null,
             Upsell: $data->Upsell ?? null,
@@ -73,6 +85,15 @@ readonly class AdminOrderDetailsDto
             );
         }
 
+        // Convert OrderItemActionDto objects back to arrays
+        $orderItemActions = null;
+        if ($this->OrderItemActions) {
+            $orderItemActions = array_map(
+                static fn(OrderItemActionDto $item) => $item->toArray(),
+                $this->OrderItemActions
+            );
+        }
+
         return [
             'OrderId'                  => $this->OrderId,
             'MerchantReference'        => $this->MerchantReference,
@@ -82,7 +103,7 @@ readonly class AdminOrderDetailsDto
             'ShippingAddress'          => $this->ShippingAddress?->toArray(),
             'Customer'                 => $this->Customer?->toArray(),
             'PaymentTransactions'      => $this->PaymentTransactions,
-            'OrderItemActions'         => $this->OrderItemActions,
+            'OrderItemActions'         => $orderItemActions,
             'MerchantProvidedMetadata' => $merchantProvidedMetadata,
             'IdentityVerification'      => $this->IdentityVerification,
             'Upsell'                   => $this->Upsell,
