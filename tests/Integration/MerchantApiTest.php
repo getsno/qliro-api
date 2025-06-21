@@ -6,7 +6,7 @@ use Gets\QliroApi\Api\Config;
 use Gets\QliroApi\Api\QliroApi;
 use Gets\QliroApi\Exceptions\AuthorizationException;
 use Gets\QliroApi\Exceptions\OrderNotFoundExceprion;
-use Gets\QliroApi\Models\Order\CreateOrderDto;
+use Gets\QliroApi\Dtos\Order\CreateOrderDto;
 use Gets\QliroApi\Tests\Factories\CreateOrderDtoFactory;
 use Gets\QliroApi\Tests\Factories\OrderItemDtoFactory;
 use Gets\QliroApi\Tests\QliroApiTestCase;

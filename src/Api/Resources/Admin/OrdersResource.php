@@ -12,7 +12,7 @@ use Gets\QliroApi\Api\Requests\Admin\Orders\ReturnItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateMerchantReferenceRequest;
 use Gets\QliroApi\Exceptions\QliroException;
-use Gets\QliroApi\Models\Order\MarkItemsAsShippedDto;
+use Gets\QliroApi\Dtos\Order\MarkItemsAsShippedDto;
 use Saloon\Exceptions\Request\FatalRequestException;
 use Saloon\Exceptions\Request\RequestException;
 use Saloon\Http\BaseResource;

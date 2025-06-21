@@ -1,6 +1,6 @@
 <?php
 
-namespace Gets\QliroApi\Models\Order;
+namespace Gets\QliroApi\Dtos\Order;
 
 readonly class AdminOrderDetailsDto
 {

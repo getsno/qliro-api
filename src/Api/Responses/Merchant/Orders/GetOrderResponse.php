@@ -1,7 +1,7 @@
 <?php
 namespace Gets\QliroApi\Api\Responses\Merchant\Orders;
 
-use Gets\QliroApi\Models\Order\MerchantOrderDetailsDto;
+use Gets\QliroApi\Dtos\Order\MerchantOrderDetailsDto;
 use Saloon\Http\Response;
 
 class GetOrderResponse

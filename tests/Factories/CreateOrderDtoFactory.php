@@ -2,8 +2,8 @@
 
 namespace Gets\QliroApi\Tests\Factories;
 
-use Gets\QliroApi\Models\Order\CreateOrderDto;
-use Gets\QliroApi\Models\Order\OrderItemDto;
+use Gets\QliroApi\Dtos\Order\CreateOrderDto;
+use Gets\QliroApi\Dtos\Order\OrderItemDto;
 
 class CreateOrderDtoFactory
 {
