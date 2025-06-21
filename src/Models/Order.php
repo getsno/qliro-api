@@ -155,4 +155,9 @@ class Order
         return null;
     }
 
+    public function getOriginalOrderAmount()
+    {
+        //need to summaraze amount from all transaction with Type='Preauthorization'
+    }
+
 }
