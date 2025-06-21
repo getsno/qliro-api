@@ -56,7 +56,7 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function getOrderByReference(string $merchantReference): Response
+    public function getOrderByMerchantReference(string $merchantReference): Response
     {
         return $this->connector->send(new GetOrderByReferenceRequest($merchantReference));
     }

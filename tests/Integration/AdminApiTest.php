@@ -17,6 +17,7 @@ use Gets\QliroApi\Exceptions\InvalidRequestTotalAmountException;
 use Gets\QliroApi\Exceptions\OperationNotSupportedException;
 use Gets\QliroApi\Exceptions\OrderHasBeenCancelledException;
 use Gets\QliroApi\Exceptions\PaymentReferenceIsIncorrectException;
+use Gets\QliroApi\Models\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Models\Order\MarkItemsAsShippedDto;
 use Gets\QliroApi\Tests\Factories\CreateOrderDtoFactory;
 use Gets\QliroApi\Tests\QliroApiTestCase;
@@ -54,7 +55,7 @@ class AdminApiTest extends QliroApiTestCase
         $response = $this->client->merchant()->orders()->createOrder($orderDto->toArray());
         $this->assertTrue(array_key_exists('OrderId', $response->json()));
 
-        $adminResponse = $this->client->admin()->orders()->getOrderByReference($orderDto->MerchantReference);
+        $adminResponse = $this->client->admin()->orders()->getOrderByMerchantReference($orderDto->MerchantReference);
         $this->assertTrue(array_key_exists('OrderId', $adminResponse->json()));
         $this->assertEquals($response->json()['OrderId'], $adminResponse->json()['OrderId']);
         $this->assertEquals($orderDto->MerchantReference, $adminResponse->json()['MerchantReference']);
