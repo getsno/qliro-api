@@ -157,22 +157,70 @@ class Order
 
     public function getOriginalOrderAmount() : float
     {
-        //need to summaraze amount from all transactions with Type='Preauthorization'
+        $transactions = $this->paymentTransactions();
+        if (!$transactions) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+        foreach ($transactions as $transaction) {
+            if ($transaction->Type === 'Preauthorization' && $transaction->Amount !== null) {
+                $total += $transaction->Amount;
+            }
+        }
+
+        return $total;
     }
 
     public function getCapturedAmount(): float
     {
-        //need to summaraze amount from all transactions with Type='Capture'
+        $transactions = $this->paymentTransactions();
+        if (!$transactions) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+        foreach ($transactions as $transaction) {
+            if ($transaction->Type === 'Capture' && $transaction->Amount !== null) {
+                $total += $transaction->Amount;
+            }
+        }
+
+        return $total;
     }
 
     public function getRefundedAmount(): float
     {
-        //need to summaraze amount from all transactions with Type='Refund'
+        $transactions = $this->paymentTransactions();
+        if (!$transactions) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+        foreach ($transactions as $transaction) {
+            if ($transaction->Type === 'Refund' && $transaction->Amount !== null) {
+                $total += $transaction->Amount;
+            }
+        }
+
+        return $total;
     }
 
     public function getCancelledAmount(): float
     {
-        //need to summaraze amount from all transactions with Type='Reversal'
+        $transactions = $this->paymentTransactions();
+        if (!$transactions) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+        foreach ($transactions as $transaction) {
+            if ($transaction->Type === 'Reversal' && $transaction->Amount !== null) {
+                $total += $transaction->Amount;
+            }
+        }
+
+        return $total;
     }
 
     public function getRemainingAmount(): float
