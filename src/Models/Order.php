@@ -7,7 +7,9 @@ use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Dtos\Order\CustomerDto;
 use Gets\QliroApi\Dtos\Order\MerchantProvidedMetadataDto;
 use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
+use Gets\QliroApi\Dtos\Order\OrderItemDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
+use Gets\QliroApi\Enums\OrderItemActionType;
 
 class Order
 {
@@ -228,13 +230,80 @@ class Order
         return $this->getOriginalOrderAmount() - $this->getCapturedAmount();
     }
 
-    public function currentOrderItems()
+    /**
+     * Get current order items based on reserved, shipped, and released quantities.
+     *
+     * @return OrderItemDto[] Array of current order items with adjusted quantities
+     */
+    public function currentOrderItems(): array
     {
-        //need to find all orderItmeActions with type = Reserve.
-        //as identity of item we need to use MerchantReference and PricePerItemExVat
-        // then need to filter out all orderItemAction with same identity, and OrderItemAction Type in (Ship,Release)
-        // need to check Qty of shipped and Released items and keep only Reserved items with leftover qties.
-        //based on leftover OrderItemActions we need to return array of OrderItemDto with proper info an qty
+        $orderItemActions = $this->orderItemActions();
+        if (!$orderItemActions) {
+            return [];
+        }
+
+        // Group items by their identity (MerchantReference and PricePerItemExVat)
+        $groupedItems = [];
+        foreach ($orderItemActions as $action) {
+            // Skip actions without required fields
+            if (!$action->MerchantReference || $action->PricePerItemExVat === null || $action->Quantity === null) {
+                continue;
+            }
+
+            // Create a unique key for each item based on MerchantReference and PricePerItemExVat
+            $itemKey = $action->MerchantReference . '_' . $action->PricePerItemExVat;
+
+            if (!isset($groupedItems[$itemKey])) {
+                $groupedItems[$itemKey] = [
+                    'reserved' => 0,
+                    'shipped' => 0,
+                    'released' => 0,
+                    'reserveAction' => null, // Store the Reserve action to use its properties later
+                ];
+            }
+
+            // Update quantities based on action type
+            if ($action->ActionType === OrderItemActionType::Reserve->value) {
+                $groupedItems[$itemKey]['reserved'] += $action->Quantity;
+                // Store the Reserve action for this item if not already set
+                if ($groupedItems[$itemKey]['reserveAction'] === null) {
+                    $groupedItems[$itemKey]['reserveAction'] = $action;
+                }
+            } elseif ($action->ActionType === OrderItemActionType::Ship->value) {
+                $groupedItems[$itemKey]['shipped'] += $action->Quantity;
+            } elseif ($action->ActionType === OrderItemActionType::Release->value) {
+                $groupedItems[$itemKey]['released'] += $action->Quantity;
+            }
+        }
+
+        // Create OrderItemDto objects for items with remaining quantities
+        $currentItems = [];
+        foreach ($groupedItems as $itemData) {
+            // Calculate the remaining quantity (reserved - shipped - released)
+            $remainingQty = $itemData['reserved'] - $itemData['shipped'] - $itemData['released'];
+
+            // Only include items with remaining quantity > 0
+            if ($remainingQty > 0) {
+                // Use the Reserve action as the source of information
+                $reserveAction = $itemData['reserveAction'];
+                if ($reserveAction === null) {
+                    continue; // Skip if no Reserve action is found
+                }
+
+                $currentItems[] = new OrderItemDto(
+                    Description: $reserveAction->Description,
+                    MerchantReference: $reserveAction->MerchantReference,
+                    PaymentTransactionId: $reserveAction->PaymentTransactionId,
+                    PricePerItemExVat: $reserveAction->PricePerItemExVat,
+                    PricePerItemIncVat: $reserveAction->PricePerItemIncVat ?? 0.0,
+                    Quantity: $remainingQty,
+                    Type: $reserveAction->Type ?? 'Product',
+                    VatRate: $reserveAction->VatRate
+                );
+            }
+        }
+
+        return $currentItems;
     }
 
 }
