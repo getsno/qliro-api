@@ -12,6 +12,7 @@ readonly class AdminOrderDetailsDto
         public ?AddressDto  $BillingAddress = null,
         public ?AddressDto  $ShippingAddress = null,
         public ?CustomerDto $Customer = null,
+        /** @var PaymentTransactionDto[]|null */
         public ?array       $PaymentTransactions = null,
         /** @var OrderItemActionDto[]|null */
         public ?array       $OrderItemActions = null,
@@ -51,6 +52,15 @@ readonly class AdminOrderDetailsDto
             );
         }
 
+        // Convert PaymentTransactions array to PaymentTransactionDto objects
+        $paymentTransactions = null;
+        if (isset($data->PaymentTransactions) && is_array($data->PaymentTransactions)) {
+            $paymentTransactions = array_map(
+                static fn($item) => PaymentTransactionDto::fromStdClass($item),
+                $data->PaymentTransactions
+            );
+        }
+
         $normalizeData = static function ($field) use ($data) {
             if (!isset($data->$field)) {
                 return null;
@@ -66,7 +76,7 @@ readonly class AdminOrderDetailsDto
             BillingAddress: AddressDto::fromStdClass($normalizeData('BillingAddress')),
             ShippingAddress: AddressDto::fromStdClass($normalizeData('ShippingAddress')),
             Customer: CustomerDto::fromStdClass($normalizeData('Customer')),
-            PaymentTransactions: $data->PaymentTransactions ?? null,
+            PaymentTransactions: $paymentTransactions,
             OrderItemActions: $orderItemActions,
             MerchantProvidedMetadata: $merchantProvidedMetadata,
             IdentityVerification: $data->IdentityVerification ?? null,
@@ -94,6 +104,15 @@ readonly class AdminOrderDetailsDto
             );
         }
 
+        // Convert PaymentTransactionDto objects back to arrays
+        $paymentTransactions = null;
+        if ($this->PaymentTransactions) {
+            $paymentTransactions = array_map(
+                static fn(PaymentTransactionDto $item) => $item->toArray(),
+                $this->PaymentTransactions
+            );
+        }
+
         return [
             'OrderId'                  => $this->OrderId,
             'MerchantReference'        => $this->MerchantReference,
@@ -102,10 +121,10 @@ readonly class AdminOrderDetailsDto
             'BillingAddress'           => $this->BillingAddress?->toArray(),
             'ShippingAddress'          => $this->ShippingAddress?->toArray(),
             'Customer'                 => $this->Customer?->toArray(),
-            'PaymentTransactions'      => $this->PaymentTransactions,
+            'PaymentTransactions'      => $paymentTransactions,
             'OrderItemActions'         => $orderItemActions,
             'MerchantProvidedMetadata' => $merchantProvidedMetadata,
-            'IdentityVerification'      => $this->IdentityVerification,
+            'IdentityVerification'     => $this->IdentityVerification,
             'Upsell'                   => $this->Upsell,
         ];
     }
