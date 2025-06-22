@@ -10,6 +10,7 @@ use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
 use Gets\QliroApi\Enums\OrderItemActionType;
+use Gets\QliroApi\Enums\OrderStatus;
 
 class Order
 {
@@ -157,7 +158,7 @@ class Order
         return null;
     }
 
-    public function amountOriginal() : float
+    public function amountOriginal(): float
     {
         $transactions = $this->paymentTransactions();
         if (!$transactions) {
@@ -260,9 +261,9 @@ class Order
 
             if (!isset($groupedItems[$itemKey])) {
                 $groupedItems[$itemKey] = [
-                    'reserved' => 0,
-                    'shipped' => 0,
-                    'released' => 0,
+                    'reserved'      => 0,
+                    'shipped'       => 0,
+                    'released'      => 0,
                     'reserveAction' => null, // Store the Reserve action to use its properties later
                 ];
             }
@@ -362,4 +363,28 @@ class Order
         return $filteredItems;
     }
 
+    public function status(): OrderStatus
+    {
+        if ($this->amountOriginal() === $this->amountCancelled()) {
+            return OrderStatus::Cancelled;
+        }
+
+        if ($this->amountRefunded() === $this->amountOriginal()) {
+            return OrderStatus::Refunded;
+        }
+
+        if($this->amountTotal() > 0.0 && $this->amountRefunded() !== 0.0) {
+            return OrderStatus::PartiallyRefunded;
+        }
+
+        if ($this->amountCaptured() !== 0.0 && $this->amountRemaining() !== 0.0) {
+            return OrderStatus::PartiallyCompleted;
+        }
+
+        if ($this->amountRemaining() === 0.0) {
+            return OrderStatus::Completed;
+        }
+
+        return OrderStatus::New;
+    }
 }
