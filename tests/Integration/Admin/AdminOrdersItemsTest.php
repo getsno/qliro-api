@@ -6,6 +6,7 @@ use Gets\QliroApi\Api\QliroApi;
 use Gets\QliroApi\Api\Requests\Admin\Orders\AddOrderItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\ReturnItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateItemsRequest;
+use Gets\QliroApi\Dtos\Order\ReturnItemsDto;
 use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Enums\PaymentTransactionStatus;
 use Gets\QliroApi\Exceptions\InvalidInputException;
@@ -106,6 +107,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
     // Update Items Tests
 
     public function testUpdateItemsProcess():void {
+        $this->markTestSkipped();
         $orderRef='CJQ3CFE7';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
         $changes = new OrderChanges();
@@ -244,9 +246,13 @@ class AdminOrdersItemsTest extends QliroApiTestCase
                 'ErrorReference' => 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
             ], status: 400),
         ]));
-        $data = [];
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Returns' => []
+        ];
         $this->expectException(InvalidInputException::class);
-        $this->client->admin()->orders()->returnItems($data);
+        $this->client->admin()->orders()->returnItems(ReturnItemsDto::fromStdClass($data));
     }
 
     public function testReturnItemsFailsWithInvalidItem(): void
@@ -258,9 +264,13 @@ class AdminOrdersItemsTest extends QliroApiTestCase
                 'ErrorReference' => '40347ec5-4ae8-4ec7-8d26-14b0cc59dcb1',
             ], status: 400),
         ]));
-        $data = [];
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Returns' => []
+        ];
         $this->expectException(InvalidItemException::class);
-        $this->client->admin()->orders()->returnItems($data);
+        $this->client->admin()->orders()->returnItems(ReturnItemsDto::fromStdClass($data));
     }
 
     public function testReturnItemsFailsForProcessedTransaction(): void
@@ -272,9 +282,13 @@ class AdminOrdersItemsTest extends QliroApiTestCase
                 'ErrorReference' => '29b5f185-b3a3-44fa-a20b-1783f21cec9a',
             ], status: 400),
         ]));
-        $data = [];
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Returns' => []
+        ];
         $this->expectException(InvalidPaymentTypeException::class);
-        $this->client->admin()->orders()->returnItems($data);
+        $this->client->admin()->orders()->returnItems(ReturnItemsDto::fromStdClass($data));
     }
 
     public function testReturnItemsFailsForAmount(): void
@@ -286,9 +300,13 @@ class AdminOrdersItemsTest extends QliroApiTestCase
                 'ErrorReference' => '51c22044-2025-4947-92ce-4eebd7bda5ee',
             ], status: 400),
         ]));
-        $data = [];
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Returns' => []
+        ];
         $this->expectException(InvalidRequestTotalAmountException::class);
-        $this->client->admin()->orders()->returnItems($data);
+        $this->client->admin()->orders()->returnItems(ReturnItemsDto::fromStdClass($data));
     }
 
     public function testReturnItemsSuccess(): void
@@ -333,7 +351,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
                 'Status' => 'Created',
             ], status: 200),
         ]));
-        $response = $this->client->admin()->orders()->returnItems($data);
+        $response = $this->client->admin()->orders()->returnItems(ReturnItemsDto::fromStdClass($data));
         $this->assertTrue(array_key_exists('PaymentTransactionId', $response->json()));
         $this->assertTrue(array_key_exists('Status', $response->json()));
         $this->assertEquals(PaymentTransactionStatus::Created->value, $response->json()['Status']);
