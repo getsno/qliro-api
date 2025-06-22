@@ -11,6 +11,7 @@ use Gets\QliroApi\Api\Requests\Admin\Orders\MarkItemsAsShippedRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\ReturnItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateMerchantReferenceRequest;
+use Gets\QliroApi\Api\Responses\Admin\Orders\GetOrderResponse;
 use Gets\QliroApi\Exceptions\QliroException;
 use Gets\QliroApi\Dtos\Order\MarkItemsAsShippedDto;
 use Saloon\Exceptions\Request\FatalRequestException;
@@ -46,9 +47,9 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function getOrder(int $orderId): Response
+    public function getOrder(int $orderId): GetOrderResponse
     {
-        return $this->connector->send(new GetOrderRequest($orderId));
+        return GetOrderResponse::fromResponse($this->connector->send(new GetOrderRequest($orderId)));
     }
 
     /**
@@ -56,9 +57,9 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function getOrderByMerchantReference(string $merchantReference): Response
+    public function getOrderByMerchantReference(string $merchantReference): GetOrderResponse
     {
-        return $this->connector->send(new GetOrderByReferenceRequest($merchantReference));
+        return GetOrderResponse::fromResponse($this->connector->send(new GetOrderByReferenceRequest($merchantReference)));
     }
 
     /**

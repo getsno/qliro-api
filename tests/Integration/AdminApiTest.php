@@ -19,6 +19,7 @@ use Gets\QliroApi\Exceptions\OrderHasBeenCancelledException;
 use Gets\QliroApi\Exceptions\PaymentReferenceIsIncorrectException;
 use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Dtos\Order\MarkItemsAsShippedDto;
+use Gets\QliroApi\Models\Order;
 use Gets\QliroApi\Tests\Factories\CreateOrderDtoFactory;
 use Gets\QliroApi\Tests\QliroApiTestCase;
 use Saloon\Http\Faking\MockClient;
@@ -44,9 +45,9 @@ class AdminApiTest extends QliroApiTestCase
         $this->assertTrue(array_key_exists('OrderId', $response->json()));
 
         $adminResponse = $this->client->admin()->orders()->getOrder($response->json()['OrderId']);
-        $this->assertTrue(array_key_exists('OrderId', $adminResponse->json()));
-        $this->assertEquals($response->json()['OrderId'], $adminResponse->json()['OrderId']);
-        $this->assertTrue(array_key_exists('PaymentTransactions', $adminResponse->json()));
+        $this->assertTrue(array_key_exists('OrderId', $adminResponse->response->json()));
+        $this->assertEquals($response->json()['OrderId'], $adminResponse->response->json()['OrderId']);
+        $this->assertTrue(array_key_exists('PaymentTransactions', $adminResponse->response->json()));
     }
 
     public function testGetOrderByReferenceWorks(): void
@@ -56,10 +57,10 @@ class AdminApiTest extends QliroApiTestCase
         $this->assertTrue(array_key_exists('OrderId', $response->json()));
 
         $adminResponse = $this->client->admin()->orders()->getOrderByMerchantReference($orderDto->MerchantReference);
-        $this->assertTrue(array_key_exists('OrderId', $adminResponse->json()));
-        $this->assertEquals($response->json()['OrderId'], $adminResponse->json()['OrderId']);
-        $this->assertEquals($orderDto->MerchantReference, $adminResponse->json()['MerchantReference']);
-        $this->assertTrue(array_key_exists('PaymentTransactions', $adminResponse->json()));
+        $this->assertTrue(array_key_exists('OrderId', $adminResponse->response->json()));
+        $this->assertEquals($response->json()['OrderId'], $adminResponse->response->json()['OrderId']);
+        $this->assertEquals($orderDto->MerchantReference, $adminResponse->response->json()['MerchantReference']);
+        $this->assertTrue(array_key_exists('PaymentTransactions', $adminResponse->response->json()));
     }
 
     public function testCancelOrderNotSupportedForNewOrder(): void
@@ -106,7 +107,7 @@ class AdminApiTest extends QliroApiTestCase
     {
         $this->markTestSkipped();
         $testOrderId = 4948230;
-        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->json();
+        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->response->json();
         $paymentTransactionId = end($orderDetails['PaymentTransactions'])['PaymentTransactionId'];
         $data = [
             'OrderId'   => $testOrderId,
@@ -178,7 +179,7 @@ class AdminApiTest extends QliroApiTestCase
     {
         $this->markTestSkipped();
         $testOrderId = 4948264;
-        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->json();
+        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->response->json();
         $paymentTransactionId = end($orderDetails['PaymentTransactions'])['PaymentTransactionId'];
         $orderItems = $orderDetails['OrderItemActions'];
         $shipments = array_map(function ($orderItem) {
@@ -289,7 +290,7 @@ class AdminApiTest extends QliroApiTestCase
     {
         $this->markTestSkipped();
         $testOrderId = 4948837;
-        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->json();
+        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->response->json();
         $paymentTransactionId = end($orderDetails['PaymentTransactions'])['PaymentTransactionId'];
         $orderItems = $orderDetails['OrderItemActions'];
 
@@ -457,7 +458,7 @@ class AdminApiTest extends QliroApiTestCase
     public function testReturnItemsSuccess(): void
     {
         $testOrderId = 4949115;
-        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->json();
+        $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->response->json();
         $paymentTransactionId = end($orderDetails['PaymentTransactions'])['PaymentTransactionId'];
         $orderItems = array_values(
             array_filter($orderDetails['OrderItemActions'], function ($item) use ($paymentTransactionId) {
