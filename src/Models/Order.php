@@ -9,6 +9,8 @@ use Gets\QliroApi\Dtos\Order\MerchantProvidedMetadataDto;
 use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
+use Gets\QliroApi\Dtos\Order\UpdateDto;
+use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Enums\OrderItemActionType;
 use Gets\QliroApi\Enums\OrderStatus;
 
@@ -386,5 +388,12 @@ class Order
         }
 
         return OrderStatus::New;
+    }
+
+
+    public function getUpdateDto(OrderChanges $changes): UpdateItemsDto
+    {
+
+        return new UpdateItemsDto();
     }
 }
