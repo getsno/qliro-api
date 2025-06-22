@@ -33,6 +33,6 @@ class OrderChange
 
     public static function replace(string $MerchantReference, float $PricePerItemExVat, int $Quantity): self
     {
-        return new self($MerchantReference, $PricePerItemExVat, OrderChangeType::Relpace, $Quantity);
+        return new self($MerchantReference, $PricePerItemExVat, OrderChangeType::Replace, $Quantity);
     }
 }

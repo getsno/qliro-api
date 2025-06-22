@@ -478,4 +478,190 @@ class OrderTest extends QliroApiTestCase
         $this->assertEquals(25.0, $item4->VatRate);
         $this->assertEquals(1004, $item4->PaymentTransactionId); // Should use Reserve action's PaymentTransactionId
     }
+    /**
+     * Test getUpdateDto with various order changes
+     */
+    public function testGetUpdateDto(): void
+    {
+        // Create order item actions
+        $actions = [
+            // Item 1: 10 reserved, 3 shipped, 2 released = 5 remaining
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Product 1',
+                MerchantReference: 'PROD-1',
+                PaymentTransactionId: 1001,
+                PricePerItemExVat: 100.0,
+                PricePerItemIncVat: 125.0,
+                Quantity: 10,
+                Type: 'Product',
+                VatRate: 25.0
+            ),
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Ship->value,
+                MerchantReference: 'PROD-1',
+                PaymentTransactionId: 2001,
+                PricePerItemExVat: 100.0,
+                Quantity: 3
+            ),
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Release->value,
+                MerchantReference: 'PROD-1',
+                PaymentTransactionId: 3001,
+                PricePerItemExVat: 100.0,
+                Quantity: 2
+            ),
+
+            // Item 2: 5 reserved, 0 shipped, 0 released = 5 remaining
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Product 2',
+                MerchantReference: 'PROD-2',
+                PaymentTransactionId: 1002,
+                PricePerItemExVat: 200.0,
+                PricePerItemIncVat: 240.0,
+                Quantity: 5,
+                Type: 'Product',
+                VatRate: 20.0
+            )
+        ];
+
+        // Create payment transactions
+        $transactions = [
+            new PaymentTransactionDto(
+                Amount: 1000.0,
+                PaymentTransactionId: 1001,
+                Type: 'Preauthorization'
+            )
+        ];
+
+        // Create order DTO with order item actions and payment transactions
+        $orderDto = new AdminOrderDetailsDto(
+            OrderId: 12345,
+            Currency: 'EUR',
+            PaymentTransactions: $transactions,
+            OrderItemActions: $actions
+        );
+
+        // Create order model
+        $order = new Order($orderDto);
+
+        // Create order changes
+        $changes = new \Gets\QliroApi\Models\OrderChanges();
+
+        // Test 1: Delete an item
+        $changes->delete('PROD-2', 200.0);
+
+        $updateDto = $order->getUpdateDto($changes);
+
+        // Verify the UpdateItemsDto
+        $this->assertEquals(12345, $updateDto->OrderId);
+        $this->assertEquals('EUR', $updateDto->Currency);
+        $this->assertCount(1, $updateDto->Updates);
+
+        // Verify the UpdateDto
+        $update = $updateDto->Updates[0];
+        $this->assertEquals(1001, $update->PaymentTransactionId);
+        $this->assertCount(1, $update->OrderItems);
+
+        // Verify the remaining item (PROD-1)
+        $item = $update->OrderItems[0];
+        $this->assertEquals('PROD-1', $item->MerchantReference);
+        $this->assertEquals(10, $item->Quantity); // Full quantity from Reserve action
+        $this->assertEquals(100.0, $item->PricePerItemExVat);
+
+        // Test 2: Decrease quantity of an item
+        $changes = new \Gets\QliroApi\Models\OrderChanges();
+        $changes->decrease('PROD-1', 100.0, 2);
+
+        $updateDto = $order->getUpdateDto($changes);
+
+        // Verify there are two UpdateDto objects (one for each PaymentTransactionId)
+        $this->assertCount(2, $updateDto->Updates);
+
+        // Find the UpdateDto for PaymentTransactionId 1001 (PROD-1)
+        $updateProd1 = null;
+        foreach ($updateDto->Updates as $update) {
+            if ($update->PaymentTransactionId === 1001) {
+                $updateProd1 = $update;
+                break;
+            }
+        }
+
+        // Verify the UpdateDto for PROD-1
+        $this->assertNotNull($updateProd1);
+        $this->assertEquals(1001, $updateProd1->PaymentTransactionId);
+        $this->assertCount(1, $updateProd1->OrderItems);
+
+        // Verify the decreased item
+        $decreasedItem = $updateProd1->OrderItems[0];
+        $this->assertEquals('PROD-1', $decreasedItem->MerchantReference);
+        $this->assertEquals(8, $decreasedItem->Quantity); // 10 - 2 = 8
+
+        // Find the UpdateDto for PaymentTransactionId 1002 (PROD-2)
+        $updateProd2 = null;
+        foreach ($updateDto->Updates as $update) {
+            if ($update->PaymentTransactionId === 1002) {
+                $updateProd2 = $update;
+                break;
+            }
+        }
+
+        // Verify the UpdateDto for PROD-2
+        $this->assertNotNull($updateProd2);
+        $this->assertEquals(1002, $updateProd2->PaymentTransactionId);
+        $this->assertCount(1, $updateProd2->OrderItems);
+
+        // Verify the PROD-2 item
+        $prod2Item = $updateProd2->OrderItems[0];
+        $this->assertEquals('PROD-2', $prod2Item->MerchantReference);
+        $this->assertEquals(5, $prod2Item->Quantity);
+
+        // Test 3: Replace quantity of an item
+        $changes = new \Gets\QliroApi\Models\OrderChanges();
+        $changes->replace('PROD-1', 100.0, 2);
+
+        $updateDto = $order->getUpdateDto($changes);
+
+        // Verify there are two UpdateDto objects (one for each PaymentTransactionId)
+        $this->assertCount(2, $updateDto->Updates);
+
+        // Find the UpdateDto for PaymentTransactionId 1001 (PROD-1)
+        $updateProd1 = null;
+        foreach ($updateDto->Updates as $update) {
+            if ($update->PaymentTransactionId === 1001) {
+                $updateProd1 = $update;
+                break;
+            }
+        }
+
+        // Verify the UpdateDto for PROD-1
+        $this->assertNotNull($updateProd1);
+        $this->assertEquals(1001, $updateProd1->PaymentTransactionId);
+        $this->assertCount(1, $updateProd1->OrderItems);
+
+        // Verify the replaced item
+        $replacedItem = $updateProd1->OrderItems[0];
+        $this->assertEquals('PROD-1', $replacedItem->MerchantReference);
+        $this->assertEquals(2, $replacedItem->Quantity); // Replaced with 2
+
+        // Find the UpdateDto for PaymentTransactionId 1002 (PROD-2)
+        $updateProd2 = null;
+        foreach ($updateDto->Updates as $update) {
+            if ($update->PaymentTransactionId === 1002) {
+                $updateProd2 = $update;
+                break;
+            }
+        }
+
+        // Verify the UpdateDto for PROD-2
+        $this->assertNotNull($updateProd2);
+        $this->assertEquals(1002, $updateProd2->PaymentTransactionId);
+        $this->assertCount(1, $updateProd2->OrderItems);
+
+        // Verify the PROD-2 item
+        $prod2Item = $updateProd2->OrderItems[0];
+        $this->assertEquals('PROD-2', $prod2Item->MerchantReference);
+        $this->assertEquals(5, $prod2Item->Quantity);
+    }
 }

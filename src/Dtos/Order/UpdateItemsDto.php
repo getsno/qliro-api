@@ -22,7 +22,7 @@ readonly class UpdateItemsDto
         $updates = [];
         if (isset($data->Updates) && is_array($data->Updates)) {
             $updates = array_map(
-                static fn($shipment) => ShipmentDto::fromStdClass($shipment),
+                static fn($update) => UpdateDto::fromStdClass($update),
                 $data->Updates
             );
         }
@@ -36,9 +36,9 @@ readonly class UpdateItemsDto
 
     public function toArray(): array
     {
-        // Convert ShipmentDto objects back to arrays
+        // Convert UpdateDto objects back to arrays
         $updates = array_map(
-            static fn(ShipmentDto $shipment) => $shipment->toArray(),
+            static fn(UpdateDto $update) => $update->toArray(),
             $this->Updates
         );
 
