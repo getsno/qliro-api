@@ -14,6 +14,7 @@ use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Enums\OrderChangeType;
 use Gets\QliroApi\Enums\OrderItemActionType;
 use Gets\QliroApi\Enums\OrderStatus;
+use Gets\QliroApi\Enums\PaymentTransactionStatus;
 
 class Order
 {
@@ -104,6 +105,16 @@ class Order
         return $this->dto->PaymentTransactions;
     }
 
+    public function paymentTransactionsSuccessful(): ?array
+    {
+        if ($this->dto->PaymentTransactions === null) {
+            return null;
+        }
+        return array_filter($this->dto->PaymentTransactions, static function (PaymentTransactionDto $transaction) {
+            return $transaction->Status === PaymentTransactionStatus::Success->value;
+        });
+    }
+
     /**
      * Retrieves the order item actions.
      *
@@ -113,6 +124,28 @@ class Order
     {
         return $this->dto->OrderItemActions;
     }
+
+    public function orderItemActionsSuccessful(): ?array
+    {
+        $successfulTransactions = $this->paymentTransactionsSuccessful();
+        if ($successfulTransactions === null) {
+            return null;
+        }
+
+        $successfullTransIds = array_map(static function (PaymentTransactionDto $transaction) {
+            return $transaction->PaymentTransactionId;
+        }, $successfulTransactions);
+
+        $orderItemActions = $this->orderItemActions();
+        if ($orderItemActions === null) {
+            return null;
+        }
+
+        return array_filter($orderItemActions, function (OrderItemActionDto $action) use ($successfullTransIds) {
+            return in_array($action->PaymentTransactionId, $successfullTransIds, true);
+        });
+    }
+
 
     /**
      * Retrieves the merchant provided metadata.
@@ -163,7 +196,7 @@ class Order
 
     public function amountOriginal(): float
     {
-        $transactions = $this->paymentTransactions();
+        $transactions = $this->paymentTransactionsSuccessful();
         if (!$transactions) {
             return 0.0;
         }
@@ -180,7 +213,7 @@ class Order
 
     public function amountCaptured(): float
     {
-        $transactions = $this->paymentTransactions();
+        $transactions = $this->paymentTransactionsSuccessful();
         if (!$transactions) {
             return 0.0;
         }
@@ -197,7 +230,7 @@ class Order
 
     public function amountRefunded(): float
     {
-        $transactions = $this->paymentTransactions();
+        $transactions = $this->paymentTransactionsSuccessful();
         if (!$transactions) {
             return 0.0;
         }
@@ -214,7 +247,7 @@ class Order
 
     public function amountCancelled(): float
     {
-        $transactions = $this->paymentTransactions();
+        $transactions = $this->paymentTransactionsSuccessful();
         if (!$transactions) {
             return 0.0;
         }
@@ -246,7 +279,7 @@ class Order
      */
     public function itemsCurrent(): array
     {
-        $orderItemActions = $this->orderItemActions();
+        $orderItemActions = $this->orderItemActionsSuccessful();
         if (!$orderItemActions) {
             return [];
         }
@@ -386,7 +419,7 @@ class Order
 
     protected function getOrderItemsByActionType(OrderItemActionType $actionType): array
     {
-        $orderItemActions = $this->orderItemActions();
+        $orderItemActions = $this->orderItemActionsSuccessful();
         if (!$orderItemActions) {
             return [];
         }
@@ -425,7 +458,7 @@ class Order
             return OrderStatus::Refunded;
         }
 
-        if($this->amountTotal() > 0.0 && $this->amountRefunded() !== 0.0) {
+        if ($this->amountTotal() > 0.0 && $this->amountRefunded() !== 0.0) {
             return OrderStatus::PartiallyRefunded;
         }
 
@@ -449,13 +482,13 @@ class Order
         // Create a map of current items by merchant reference and price
         $currentItemsMap = [];
         foreach ($currentItems as $item) {
-            $key = $item->MerchantReference . '_' . $item->PricePerItemExVat;
+            $key = $item->MerchantReference . '_' . $item->PricePerItemIncVat;
             $currentItemsMap[$key] = $item;
         }
 
         // Apply changes to current items
         foreach ($changes->getChanges() as $change) {
-            $key = $change->MerchantReference . '_' . $change->PricePerItemExVat;
+            $key = $change->MerchantReference . '_' . $change->PricePerItemIncVat;
 
             // Skip if item doesn't exist in current items
             if (!isset($currentItemsMap[$key])) {

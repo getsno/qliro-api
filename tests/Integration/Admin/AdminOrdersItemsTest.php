@@ -14,6 +14,7 @@ use Gets\QliroApi\Exceptions\InvalidPaymentTypeException;
 use Gets\QliroApi\Exceptions\InvalidRequestTotalAmountException;
 use Gets\QliroApi\Exceptions\OperationNotSupportedException;
 use Gets\QliroApi\Exceptions\PaymentReferenceIsIncorrectException;
+use Gets\QliroApi\Models\OrderChanges;
 use Gets\QliroApi\Tests\QliroApiTestCase;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -31,7 +32,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
     }
 
     // Add Order Items Tests
-    public function testAddOrderItemsWorks(): void
+    public function testAddOrderItems(): void
     {
         $this->markTestSkipped();
         $testOrderId = 4948230;
@@ -60,7 +61,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
         $response = $this->client->admin()->orders()->addOrderItems($data);
     }
 
-    public function testAddOrderWithWrongTransactionWorks(): void
+    public function testAddOrderWithWrongTransaction(): void
     {
         $this->client->withMockClient(new MockClient([
             AddOrderItemsRequest::class => MockResponse::make(body: [
@@ -103,6 +104,23 @@ class AdminOrdersItemsTest extends QliroApiTestCase
     }
 
     // Update Items Tests
+
+    public function testUpdateItemsProcess():void {
+        $orderRef='CJQ3CFE7';
+        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+        $changes = new OrderChanges();
+        $changes->decrease('7057320717180',75,2);
+        $dto = $order->getUpdateDto($changes);
+        $response = $this->client->admin()->orders()->updateItems($dto);
+        $payment_transactionId = 3294587;
+        $newDetails = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+        $newChanges = new OrderChanges();
+        $newChanges->decrease('7057320717180',75,1);
+        $newDto = $order->getUpdateDto($changes);
+
+        $test=1;
+    }
+
     public function testUpdateItemsWorks(): void
     {
         $this->markTestSkipped();

@@ -6,6 +6,7 @@ use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
 use Gets\QliroApi\Enums\OrderItemActionType;
+use Gets\QliroApi\Enums\PaymentTransactionStatus;
 use Gets\QliroApi\Models\Order;
 use Gets\QliroApi\Tests\QliroApiTestCase;
 
@@ -93,12 +94,15 @@ class OrderTest extends QliroApiTestCase
         $transaction1 = new PaymentTransactionDto(
             Amount: 100.0,
             PaymentTransactionId: 123,
+            Status: PaymentTransactionStatus::Cancelled->value,
             Type: 'Preauthorization'
         );
         $transaction2 = new PaymentTransactionDto(
             Amount: 50.0,
             PaymentTransactionId: 456,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Preauthorization'
+
         );
         $transaction3 = new PaymentTransactionDto(
             Amount: 75.0,
@@ -116,7 +120,7 @@ class OrderTest extends QliroApiTestCase
 
         // Test getting original order amount (should sum only Preauthorization transactions)
         $amount = $order->amountOriginal();
-        $this->assertEquals(150.0, $amount);
+        $this->assertEquals(50, $amount);
     }
 
     /**
@@ -128,16 +132,19 @@ class OrderTest extends QliroApiTestCase
         $transaction1 = new PaymentTransactionDto(
             Amount: 100.0,
             PaymentTransactionId: 123,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Capture'
         );
         $transaction2 = new PaymentTransactionDto(
             Amount: 50.0,
             PaymentTransactionId: 456,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Capture'
         );
         $transaction3 = new PaymentTransactionDto(
             Amount: 200.0,
             PaymentTransactionId: 789,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Preauthorization'
         );
 
@@ -163,16 +170,19 @@ class OrderTest extends QliroApiTestCase
         $transaction1 = new PaymentTransactionDto(
             Amount: 30.0,
             PaymentTransactionId: 123,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Refund'
         );
         $transaction2 = new PaymentTransactionDto(
             Amount: 20.0,
             PaymentTransactionId: 456,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Refund'
         );
         $transaction3 = new PaymentTransactionDto(
             Amount: 100.0,
             PaymentTransactionId: 789,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Capture'
         );
 
@@ -198,16 +208,19 @@ class OrderTest extends QliroApiTestCase
         $transaction1 = new PaymentTransactionDto(
             Amount: 40.0,
             PaymentTransactionId: 123,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Reversal'
         );
         $transaction2 = new PaymentTransactionDto(
             Amount: 10.0,
             PaymentTransactionId: 456,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Reversal'
         );
         $transaction3 = new PaymentTransactionDto(
             Amount: 100.0,
             PaymentTransactionId: 789,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Preauthorization'
         );
 
@@ -233,16 +246,19 @@ class OrderTest extends QliroApiTestCase
         $transaction1 = new PaymentTransactionDto(
             Amount: 200.0,
             PaymentTransactionId: 123,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Preauthorization'
         );
         $transaction2 = new PaymentTransactionDto(
             Amount: 150.0,
             PaymentTransactionId: 456,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Capture'
         );
         $transaction3 = new PaymentTransactionDto(
             Amount: 20.0,
             PaymentTransactionId: 789,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Reversal'
         );
 
@@ -268,21 +284,25 @@ class OrderTest extends QliroApiTestCase
         $transaction1 = new PaymentTransactionDto(
             Amount: 200.0,
             PaymentTransactionId: 123,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Preauthorization'
         );
         $transaction2 = new PaymentTransactionDto(
             Amount: 150.0,
             PaymentTransactionId: 456,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Capture'
         );
         $transaction3 = new PaymentTransactionDto(
             Amount: 20.0,
             PaymentTransactionId: 789,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Reversal'
         );
         $transaction4 = new PaymentTransactionDto(
             Amount: 30.0,
             PaymentTransactionId: 101,
+            Status: PaymentTransactionStatus::Success->value,
             Type: 'Refund'
         );
 
@@ -343,6 +363,33 @@ class OrderTest extends QliroApiTestCase
      */
     public function testItemsNotCancelled(): void
     {
+        $paymentTransactions = [
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1001,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1002,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1003,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1004,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 3001,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 3002,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+        ];
+
         // Create order item actions
         $actions = [
             // Item 1: 10 reserved, 3 cancelled = 7 remaining
@@ -411,9 +458,9 @@ class OrderTest extends QliroApiTestCase
                 VatRate: 25.0
             )
         ];
-
         // Create order DTO with order item actions
         $orderDto = new AdminOrderDetailsDto(
+            PaymentTransactions: $paymentTransactions,
             OrderItemActions: $actions
         );
 
@@ -465,6 +512,37 @@ class OrderTest extends QliroApiTestCase
      */
     public function testCurrentOrderItems(): void
     {
+        $paymentTransactions = [
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1001,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1002,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1003,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1004,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 2001,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 2002,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+            new PaymentTransactionDto(
+                PaymentTransactionId: 3001,
+                Status: PaymentTransactionStatus::Success->value
+            ),
+        ];
+
         // Create order item actions
         $actions = [
             // Item 1: 10 reserved, 3 shipped, 2 released = 5 remaining
@@ -543,6 +621,7 @@ class OrderTest extends QliroApiTestCase
 
         // Create order DTO with order item actions
         $orderDto = new AdminOrderDetailsDto(
+            PaymentTransactions:$paymentTransactions,
             OrderItemActions: $actions
         );
 
@@ -603,6 +682,7 @@ class OrderTest extends QliroApiTestCase
     /**
      * Test getUpdateDto with various order changes
      */
+
     public function testGetUpdateDto(): void
     {
         // Create order item actions
@@ -623,14 +703,14 @@ class OrderTest extends QliroApiTestCase
                 ActionType: OrderItemActionType::Ship->value,
                 MerchantReference: 'PROD-1',
                 PaymentTransactionId: 2001,
-                PricePerItemExVat: 100.0,
+                PricePerItemIncVat: 125.0,
                 Quantity: 3
             ),
             new OrderItemActionDto(
                 ActionType: OrderItemActionType::Release->value,
                 MerchantReference: 'PROD-1',
                 PaymentTransactionId: 3001,
-                PricePerItemExVat: 100.0,
+                PricePerItemIncVat: 125.0,
                 Quantity: 2
             ),
 
@@ -648,12 +728,31 @@ class OrderTest extends QliroApiTestCase
             )
         ];
 
-        // Create payment transactions
+        // Create payment transactions with Success status for all referenced IDs
         $transactions = [
             new PaymentTransactionDto(
                 Amount: 1000.0,
                 PaymentTransactionId: 1001,
+                Status: PaymentTransactionStatus::Success->value,
                 Type: 'Preauthorization'
+            ),
+            new PaymentTransactionDto(
+                Amount: 1000.0,
+                PaymentTransactionId: 1002,
+                Status: PaymentTransactionStatus::Success->value,
+                Type: 'Preauthorization'
+            ),
+            new PaymentTransactionDto(
+                Amount: 300.0,
+                PaymentTransactionId: 2001,
+                Status: PaymentTransactionStatus::Success->value,
+                Type: 'Capture'
+            ),
+            new PaymentTransactionDto(
+                Amount: 200.0,
+                PaymentTransactionId: 3001,
+                Status: PaymentTransactionStatus::Success->value,
+                Type: 'Release'
             )
         ];
 
@@ -672,7 +771,7 @@ class OrderTest extends QliroApiTestCase
         $changes = new \Gets\QliroApi\Models\OrderChanges();
 
         // Test 1: Delete an item
-        $changes->delete('PROD-2', 200.0);
+        $changes->delete('PROD-2', 240.0);
 
         $updateDto = $order->getUpdateDto($changes);
 
@@ -694,7 +793,7 @@ class OrderTest extends QliroApiTestCase
 
         // Test 2: Decrease quantity of an item
         $changes = new \Gets\QliroApi\Models\OrderChanges();
-        $changes->decrease('PROD-1', 100.0, 2);
+        $changes->decrease('PROD-1', 125.0, 2);
 
         $updateDto = $order->getUpdateDto($changes);
 
@@ -741,7 +840,7 @@ class OrderTest extends QliroApiTestCase
 
         // Test 3: Replace quantity of an item
         $changes = new \Gets\QliroApi\Models\OrderChanges();
-        $changes->replace('PROD-1', 100.0, 2);
+        $changes->replace('PROD-1', 125.0, 2);
 
         $updateDto = $order->getUpdateDto($changes);
 
