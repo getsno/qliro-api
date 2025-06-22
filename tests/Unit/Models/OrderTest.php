@@ -339,6 +339,128 @@ class OrderTest extends QliroApiTestCase
     }
 
     /**
+     * Test itemsNotCancelled method
+     */
+    public function testItemsNotCancelled(): void
+    {
+        // Create order item actions
+        $actions = [
+            // Item 1: 10 reserved, 3 cancelled = 7 remaining
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Product 1',
+                MerchantReference: 'PROD-1',
+                PaymentTransactionId: 1001,
+                PricePerItemExVat: 100.0,
+                PricePerItemIncVat: 125.0,
+                Quantity: 10,
+                Type: 'Product',
+                VatRate: 25.0
+            ),
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Release->value,
+                MerchantReference: 'PROD-1',
+                PaymentTransactionId: 3001,
+                PricePerItemExVat: 100.0,
+                Quantity: 3
+            ),
+
+            // Item 2: 5 reserved, 5 cancelled = 0 remaining (should not be included)
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Product 2',
+                MerchantReference: 'PROD-2',
+                PaymentTransactionId: 1002,
+                PricePerItemExVat: 200.0,
+                PricePerItemIncVat: 240.0,
+                Quantity: 5,
+                Type: 'Product',
+                VatRate: 20.0
+            ),
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Release->value,
+                MerchantReference: 'PROD-2',
+                PaymentTransactionId: 3002,
+                PricePerItemExVat: 200.0,
+                Quantity: 5
+            ),
+
+            // Item 3: 3 reserved, 0 cancelled = 3 remaining
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Product 3',
+                MerchantReference: 'PROD-3',
+                PaymentTransactionId: 1003,
+                PricePerItemExVat: 50.0,
+                PricePerItemIncVat: 60.0,
+                Quantity: 3,
+                Type: 'Product',
+                VatRate: 20.0
+            ),
+
+            // Item 4: Different price for same product (should be treated as separate item)
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Product 1 (discounted)',
+                MerchantReference: 'PROD-1',
+                PaymentTransactionId: 1004,
+                PricePerItemExVat: 80.0,
+                PricePerItemIncVat: 100.0,
+                Quantity: 2,
+                Type: 'Product',
+                VatRate: 25.0
+            )
+        ];
+
+        // Create order DTO with order item actions
+        $orderDto = new AdminOrderDetailsDto(
+            OrderItemActions: $actions
+        );
+
+        // Create order model
+        $order = new Order($orderDto);
+
+        // Get not cancelled order items
+        $notCancelledItems = $order->itemsNotCancelled();
+
+        // Test number of items (should be 3: PROD-1 with price 100, PROD-3, and PROD-1 with price 80)
+        $this->assertCount(3, $notCancelledItems);
+
+        // Find items by merchant reference and price
+        $item1 = null;
+        $item3 = null;
+        $item4 = null;
+
+        foreach ($notCancelledItems as $item) {
+            if ($item->MerchantReference === 'PROD-1' && $item->PricePerItemExVat === 100.0) {
+                $item1 = $item;
+            } elseif ($item->MerchantReference === 'PROD-3') {
+                $item3 = $item;
+            } elseif ($item->MerchantReference === 'PROD-1' && $item->PricePerItemExVat === 80.0) {
+                $item4 = $item;
+            }
+        }
+
+        // Test item 1 properties
+        $this->assertNotNull($item1);
+        $this->assertEquals('Product 1', $item1->Description);
+        $this->assertEquals(7, $item1->Quantity); // 10 reserved - 3 cancelled
+        $this->assertEquals(1001, $item1->PaymentTransactionId); // Should use the PaymentTransactionId from the Reserve action
+
+        // Test item 3 properties
+        $this->assertNotNull($item3);
+        $this->assertEquals('Product 3', $item3->Description);
+        $this->assertEquals(3, $item3->Quantity); // 3 reserved - 0 cancelled
+        $this->assertEquals(1003, $item3->PaymentTransactionId);
+
+        // Test item 4 properties
+        $this->assertNotNull($item4);
+        $this->assertEquals('Product 1 (discounted)', $item4->Description);
+        $this->assertEquals(2, $item4->Quantity); // 2 reserved - 0 cancelled
+        $this->assertEquals(1004, $item4->PaymentTransactionId);
+    }
+
+    /**
      * Test currentOrderItems with various order item actions
      */
     public function testCurrentOrderItems(): void

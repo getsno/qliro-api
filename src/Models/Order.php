@@ -335,6 +335,55 @@ class Order
         return $this->getOrderItemsByActionType(OrderItemActionType::Reserve);
     }
 
+    public function itemsNotCancelled(): array
+    {
+        // Get reserved items
+        $reservedItems = $this->itemsReserved();
+
+        // Get cancelled items
+        $cancelledItems = $this->itemsCancelled();
+
+        // Create a map of cancelled items by merchant reference and price
+        $cancelledItemsMap = [];
+        foreach ($cancelledItems as $item) {
+            $key = $item->MerchantReference . '_' . $item->PricePerItemExVat;
+            if (!isset($cancelledItemsMap[$key])) {
+                $cancelledItemsMap[$key] = 0;
+            }
+            $cancelledItemsMap[$key] += $item->Quantity;
+        }
+
+        // Create a result array of items that are reserved but not cancelled
+        // (or where the cancelled quantity is less than the reserved quantity)
+        $notCancelledItems = [];
+        foreach ($reservedItems as $item) {
+            $key = $item->MerchantReference . '_' . $item->PricePerItemExVat;
+            $cancelledQty = $cancelledItemsMap[$key] ?? 0;
+
+            // Skip items that have been fully cancelled
+            if ($cancelledQty >= $item->Quantity) {
+                continue;
+            }
+
+            // Calculate the remaining quantity
+            $remainingQty = $item->Quantity - $cancelledQty;
+
+            // Create a new OrderItemDto with the remaining quantity
+            $notCancelledItems[] = new OrderItemDto(
+                Description: $item->Description,
+                MerchantReference: $item->MerchantReference,
+                PaymentTransactionId: $item->PaymentTransactionId,
+                PricePerItemExVat: $item->PricePerItemExVat,
+                PricePerItemIncVat: $item->PricePerItemIncVat,
+                Quantity: $remainingQty,
+                Type: $item->Type,
+                VatRate: $item->VatRate
+            );
+        }
+
+        return $notCancelledItems;
+    }
+
     protected function getOrderItemsByActionType(OrderItemActionType $actionType): array
     {
         $orderItemActions = $this->orderItemActions();
@@ -395,7 +444,7 @@ class Order
     public function getUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
         // Get reserved items
-        $currentItems = $this->itemsReserved();
+        $currentItems = $this->itemsNotCancelled();
 
         // Create a map of current items by merchant reference and price
         $currentItemsMap = [];
@@ -425,7 +474,6 @@ class Order
                     if ($change->Quantity !== null) {
                         $newQuantity = $currentItemsMap[$key]->Quantity - $change->Quantity;
                         if ($newQuantity <= 0) {
-                            // If quantity becomes zero or negative, remove item
                             unset($currentItemsMap[$key]);
                         } else {
                             // Update quantity
@@ -470,11 +518,6 @@ class Order
         // Get items after applying changes
         $updatedItems = array_values($currentItemsMap);
 
-        // Check if there are any items
-        if (empty($updatedItems)) {
-            throw new \InvalidArgumentException('No items left after applying changes');
-        }
-
         // Group items by PaymentTransactionId
         $groupedItems = [];
         foreach ($updatedItems as $item) {
@@ -496,7 +539,7 @@ class Order
         // Create UpdateItemsDto
         return new UpdateItemsDto(
             OrderId: $this->orderId() ?? 0,
-            Currency: $this->currency() ?? 'SEK',
+            Currency: $this->currency() ?? 'NOK',
             Updates: $updates
         );
     }
