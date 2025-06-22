@@ -12,6 +12,7 @@ use Gets\QliroApi\Api\Requests\Admin\Orders\ReturnItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateMerchantReferenceRequest;
 use Gets\QliroApi\Api\Responses\Admin\Orders\GetOrderResponse;
+use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Exceptions\QliroException;
 use Gets\QliroApi\Dtos\Order\MarkItemsAsShippedDto;
 use Saloon\Exceptions\Request\FatalRequestException;
@@ -83,9 +84,9 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function updateItems(array $data): Response
+    public function updateItems(UpdateItemsDto $data): Response
     {
-        return $this->connector->send(new UpdateItemsRequest($data));
+        return $this->connector->send(new UpdateItemsRequest($data->toArray()));
     }
 
     /**

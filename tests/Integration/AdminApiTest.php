@@ -9,6 +9,7 @@ use Gets\QliroApi\Api\Requests\Admin\Orders\MarkItemsAsShippedRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\ReturnItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateMerchantReferenceRequest;
+use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Enums\PaymentTransactionStatus;
 use Gets\QliroApi\Exceptions\InvalidInputException;
 use Gets\QliroApi\Exceptions\InvalidItemException;
@@ -291,21 +292,6 @@ class AdminApiTest extends QliroApiTestCase
         $this->markTestSkipped();
         $testOrderId = 4948837;
         $orderDetails = $this->client->admin()->orders()->getOrder($testOrderId)->response->json();
-        $paymentTransactionId = end($orderDetails['PaymentTransactions'])['PaymentTransactionId'];
-        $orderItems = $orderDetails['OrderItemActions'];
-
-        $data = [
-            'OrderId'   => $testOrderId,
-            'Currency'  => 'NOK',
-            'Additions' => [
-                [
-                    'PaymentTransactionId' => $paymentTransactionId,
-                    'OrderItems'           => $addItems,
-                ],
-            ],
-        ];
-        $response = $this->client->admin()->orders()->addOrderItems($data);
-        $test = 1;
 
         $updatedItems = [
 
@@ -338,7 +324,7 @@ class AdminApiTest extends QliroApiTestCase
             ],
         ];
 
-        $response = $this->client->admin()->orders()->updateItems($data);
+        $response = $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
         $test = 1;
     }
 
@@ -351,9 +337,13 @@ class AdminApiTest extends QliroApiTestCase
                 'ErrorReference' => 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
             ], status: 400),
         ]));
-        $data = [];
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Updates' => []
+        ];
         $this->expectException(OperationNotSupportedException::class);
-        $this->client->admin()->orders()->updateItems($data);
+        $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
     }
 
     public function testUpdateItemsFailsWithInvalidItem(): void
@@ -365,9 +355,13 @@ class AdminApiTest extends QliroApiTestCase
                 'ErrorReference' => '40347ec5-4ae8-4ec7-8d26-14b0cc59dcb1',
             ], status: 400),
         ]));
-        $data = [];
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Updates' => []
+        ];
         $this->expectException(InvalidItemException::class);
-        $this->client->admin()->orders()->updateItems($data);
+        $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
     }
 
     public function testUpdateItemsFailsForProcessedTransaction(): void
@@ -379,9 +373,13 @@ class AdminApiTest extends QliroApiTestCase
                 'ErrorReference' => 'a86357c2-d3a5-4120-823b-deee79b733ae',
             ], status: 400),
         ]));
-        $data = [];
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Updates' => []
+        ];
         $this->expectException(PaymentReferenceIsIncorrectException::class);
-        $this->client->admin()->orders()->updateItems($data);
+        $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
     }
 
     public function testUpdateItemsSuccess(): void
@@ -392,8 +390,12 @@ class AdminApiTest extends QliroApiTestCase
                 'Status'               => 'Created',
             ], status: 200),
         ]));
-        $data = [];
-        $response = $this->client->admin()->orders()->updateItems($data);
+        $data = [
+            'OrderId'   => 123,
+            'Currency'  => 'NOK',
+            'Updates' => []
+        ];
+        $response = $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
         $this->assertTrue(array_key_exists('PaymentTransactionId', $response->json()));
         $this->assertTrue(array_key_exists('Status', $response->json()));
         $this->assertEquals(PaymentTransactionStatus::Created->value, $response->json()['Status']);
