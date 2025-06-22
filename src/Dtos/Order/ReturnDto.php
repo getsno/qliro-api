@@ -10,6 +10,8 @@ readonly class ReturnDto
         public array $OrderItems,
         /** @var DiscountDto[] */
         public array $Discounts = [],
+        /** @var FeeDto[] */
+        public array $Fees = [],
     )
     {
     }
@@ -36,10 +38,19 @@ readonly class ReturnDto
             );
         }
 
+        $fees = [];
+        if (isset($data->Fees) && is_array($data->Fees)) {
+            $fees = array_map(
+                static fn($fee) => FeeDto::fromStdClass($fee),
+                $data->Fees
+            );
+        }
+
         return new self(
             PaymentTransactionId: $data->PaymentTransactionId,
             OrderItems: $orderItems,
             Discounts: $discounts,
+            Fees: $fees,
         );
     }
 
@@ -54,6 +65,10 @@ readonly class ReturnDto
             'Discounts'            => array_map(
                 static fn(DiscountDto $discount) => $discount->toArray(),
                 $this->Discounts
+            ),
+            'Fees'                 => array_map(
+                static fn(FeeDto $fee) => $fee->toArray(),
+                $this->Fees
             ),
         ];
     }
