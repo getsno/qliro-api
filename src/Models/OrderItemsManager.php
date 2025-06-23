@@ -4,6 +4,7 @@ namespace Gets\QliroApi\Models;
 
 use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
+use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
 use Gets\QliroApi\Enums\OrderItemActionType;
 
 class OrderItemsManager

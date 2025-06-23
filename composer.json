@@ -21,5 +21,11 @@
   "require-dev": {
     "phpunit/phpunit": "^10.0",
     "mockery/mockery": "^1.5"
+  },
+  "scripts": {
+    "test": "phpunit",
+    "test:unit": "phpunit tests/Unit",
+    "test:integration": "phpunit tests/Integration",
+    "test:no-api": "SKIP_ACTUAL_API_CALLS=true phpunit"
   }
 }

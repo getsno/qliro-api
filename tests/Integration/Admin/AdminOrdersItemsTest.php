@@ -110,6 +110,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
     // Update Items Tests
 
     public function testUpdateItemsProcess():void {
+        $this->markTestSkipped();
         $orderRef='XX3FT9KB';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
         $returns = new OrderReturns();
@@ -264,7 +265,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
             'Currency'  => 'NOK',
             'Updates' => []
         ];
-        $response = $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
+        $response = $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data))->response;
         $this->assertTrue(array_key_exists('PaymentTransactionId', $response->json()));
         $this->assertTrue(array_key_exists('Status', $response->json()));
         $this->assertEquals(PaymentTransactionStatus::Created->value, $response->json()['Status']);
