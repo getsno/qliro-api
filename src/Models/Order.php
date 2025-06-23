@@ -376,26 +376,114 @@ class Order
         $orderItemsCaptured = $this->getOrderItemActionsByActionType(OrderItemActionType::Ship);
         $orderItemsRefunded = $this->getOrderItemActionsByActionType(OrderItemActionType::Return);
         $orderItemsEligibleForRefund = [];
-        //need to subtract $orderItemsRefunded from order $orderItemsCaptured
-        //as identity we should use MerchantReference and PricePerItemIncVat
-        //subtract should be calculated based on connected PaymentTransactionId Timestamp, $transaction PaymentTransactionDto
-        //can be obtained with $this->getPaymentTransactionById($item->ProviderTransactionId)
-        //as result we need to provide OrderItemDto with remaining qties, as PaymentTransactionId we should use Transaction Id from capture item.
 
+        // Group captured items by MerchantReference and PricePerItemIncVat
+        $capturedItemsMap = [];
+        foreach ($orderItemsCaptured as $capturedItem) {
+            // Skip items without required fields
+            if (!$capturedItem->MerchantReference ||
+                $capturedItem->PricePerItemIncVat === null ||
+                $capturedItem->Quantity === null ||
+                $capturedItem->PaymentTransactionId === null) {
+                continue;
+            }
 
+            $key = $capturedItem->MerchantReference . '_' . $capturedItem->PricePerItemIncVat;
 
+            if (!isset($capturedItemsMap[$key])) {
+                $capturedItemsMap[$key] = [];
+            }
 
+            // Get the transaction to check its timestamp
+            $transaction = $this->getPaymentTransactionById($capturedItem->PaymentTransactionId);
+            if (!$transaction) {
+                continue;
+            }
+
+            $capturedItemsMap[$key][] = [
+                'item' => $capturedItem,
+                'transaction' => $transaction,
+                'timestamp' => $transaction->Timestamp
+            ];
+        }
+
+        // Group refunded items by MerchantReference and PricePerItemIncVat
+        $refundedItemsMap = [];
+        foreach ($orderItemsRefunded as $refundedItem) {
+            // Skip items without required fields
+            if (!$refundedItem->MerchantReference ||
+                $refundedItem->PricePerItemIncVat === null ||
+                $refundedItem->Quantity === null) {
+                continue;
+            }
+
+            $key = $refundedItem->MerchantReference . '_' . $refundedItem->PricePerItemIncVat;
+
+            if (!isset($refundedItemsMap[$key])) {
+                $refundedItemsMap[$key] = 0;
+            }
+
+            $refundedItemsMap[$key] += $refundedItem->Quantity;
+        }
+
+        // Calculate remaining quantities for each captured item
+        foreach ($capturedItemsMap as $key => $capturedItems) {
+            $refundedQty = $refundedItemsMap[$key] ?? 0;
+
+            // Sort captured items by timestamp (oldest first)
+            usort($capturedItems, function ($a, $b) {
+                return strcmp($a['timestamp'] ?? '', $b['timestamp'] ?? '');
+            });
+
+            // Process each captured item
+            foreach ($capturedItems as $capturedItemData) {
+                $capturedItem = $capturedItemData['item'];
+                $capturedQty = $capturedItem->Quantity;
+
+                // If there are refunded items, subtract them from the captured quantity
+                if ($refundedQty > 0) {
+                    if ($refundedQty >= $capturedQty) {
+                        // This item is fully refunded
+                        $refundedQty -= $capturedQty;
+                        continue;
+                    } else {
+                        // This item is partially refunded
+                        $remainingQty = $capturedQty - $refundedQty;
+                        $refundedQty = 0;
+                    }
+                } else {
+                    // No refunds for this item
+                    $remainingQty = $capturedQty;
+                }
+
+                // Add to eligible items if there's a remaining quantity
+                if ($remainingQty > 0) {
+                    $orderItemsEligibleForRefund[] = [
+                        'Description' => $capturedItem->Description,
+                        'MerchantReference' => $capturedItem->MerchantReference,
+                        'PaymentTransactionId' => $capturedItem->PaymentTransactionId,
+                        'PricePerItemExVat' => $capturedItem->PricePerItemExVat,
+                        'PricePerItemIncVat' => $capturedItem->PricePerItemIncVat,
+                        'Quantity' => $remainingQty,
+                        'Type' => $capturedItem->Type,
+                        'VatRate' => $capturedItem->VatRate
+                    ];
+                }
+            }
+        }
+
+        // Convert to OrderItemDto objects
         $filteredItems = [];
         foreach ($orderItemsEligibleForRefund as $action) {
             $filteredItems[] = new OrderItemDto(
-                Description: $action->Description,
-                MerchantReference: $action->MerchantReference,
-                PaymentTransactionId: $action->PaymentTransactionId,
-                PricePerItemExVat: $action->PricePerItemExVat,
-                PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
-                Quantity: $action->Quantity,
-                Type: $action->Type ?? 'Product',
-                VatRate: $action->VatRate
+                Description: $action['Description'],
+                MerchantReference: $action['MerchantReference'],
+                PaymentTransactionId: $action['PaymentTransactionId'],
+                PricePerItemExVat: $action['PricePerItemExVat'],
+                PricePerItemIncVat: $action['PricePerItemIncVat'] ?? 0.0,
+                Quantity: $action['Quantity'],
+                Type: $action['Type'] ?? 'Product',
+                VatRate: $action['VatRate']
             );
         }
 
@@ -626,16 +714,16 @@ class Order
 
     public function getReturnDto(OrderReturns $changes): ReturnItemsDto
     {
-        $capturedItems = $this->itemsCaptured();
+        $refundAbleItems = $this->itemsEligableForRefund();
 
         // Create a map of captured items by merchant reference and price
-        $capturedItemsMap = [];
-        foreach ($capturedItems as $item) {
+        $refundableItemsMap = [];
+        foreach ($refundAbleItems as $item) {
             $key = $item->MerchantReference . '_' . $item->PricePerItemIncVat;
-            if (!isset($capturedItemsMap[$key])) {
-                $capturedItemsMap[$key] = [];
+            if (!isset($refundableItemsMap[$key])) {
+                $refundableItemsMap[$key] = [];
             }
-            $capturedItemsMap[$key][] = $item;
+            $refundableItemsMap[$key][] = $item;
         }
 
         // Group returns by PaymentTransactionId
@@ -645,7 +733,7 @@ class Order
             $key = $return->MerchantReference . '_' . $return->PricePerItemIncVat;
 
             // Check if the item exists in captured items
-            if (!isset($capturedItemsMap[$key])) {
+            if (!isset($refundableItemsMap[$key])) {
                 throw new QliroException(
                     "Item with MerchantReference '{$return->MerchantReference}' and price {$return->PricePerItemIncVat} not found in captured items"
                 );
@@ -653,7 +741,7 @@ class Order
 
             // Calculate total captured quantity for this item
             $totalCapturedQty = 0;
-            foreach ($capturedItemsMap[$key] as $capturedItem) {
+            foreach ($refundableItemsMap[$key] as $capturedItem) {
                 $totalCapturedQty += $capturedItem->Quantity;
             }
 
@@ -666,7 +754,7 @@ class Order
 
             // Distribute return quantity across captured items
             $remainingQty = $return->Quantity;
-            foreach ($capturedItemsMap[$key] as $capturedItem) {
+            foreach ($refundableItemsMap[$key] as $capturedItem) {
                 if ($remainingQty <= 0) {
                     break;
                 }
