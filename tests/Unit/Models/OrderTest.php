@@ -773,7 +773,7 @@ class OrderTest extends QliroApiTestCase
         // Test 1: Delete an item
         $changes->delete('PROD-2', 240.0);
 
-        $updateDto = $order->getUpdateDto($changes);
+        $updateDto = $order->buildUpdateDto($changes);
 
         // Verify the UpdateItemsDto
         $this->assertEquals(12345, $updateDto->OrderId);
@@ -795,7 +795,7 @@ class OrderTest extends QliroApiTestCase
         $changes = new \Gets\QliroApi\Models\OrderChanges();
         $changes->decrease('PROD-1', 125.0, 2);
 
-        $updateDto = $order->getUpdateDto($changes);
+        $updateDto = $order->buildUpdateDto($changes);
 
         // Verify there are two UpdateDto objects (one for each PaymentTransactionId)
         $this->assertCount(2, $updateDto->Updates);
@@ -842,7 +842,7 @@ class OrderTest extends QliroApiTestCase
         $changes = new \Gets\QliroApi\Models\OrderChanges();
         $changes->replace('PROD-1', 125.0, 2);
 
-        $updateDto = $order->getUpdateDto($changes);
+        $updateDto = $order->buildUpdateDto($changes);
 
         // Verify there are two UpdateDto objects (one for each PaymentTransactionId)
         $this->assertCount(2, $updateDto->Updates);

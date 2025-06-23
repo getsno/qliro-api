@@ -157,6 +157,40 @@ class OrderItemsManager
 
         return $filteredItems;
     }
+    /**
+     * @return OrderItemDto[]
+     */
+    public function byTransactionId(int $transactionId): array
+    {
+        $orderItemActions = $this->orderItemActions;
+        if (!$orderItemActions) {
+            return [];
+        }
+
+        $transactionItems = [];
+        foreach ($orderItemActions as $action) {
+            // Skip actions without required fields or not matching the transaction ID
+            if (!$action->MerchantReference ||
+                $action->PricePerItemExVat === null ||
+                $action->Quantity === null ||
+                $action->PaymentTransactionId !== $transactionId) {
+                continue;
+            }
+
+            $transactionItems[] = new OrderItemDto(
+                Description: $action->Description,
+                MerchantReference: $action->MerchantReference,
+                PaymentTransactionId: $action->PaymentTransactionId,
+                PricePerItemExVat: $action->PricePerItemExVat,
+                PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
+                Quantity: $action->Quantity,
+                Type: $action->Type ?? 'Product',
+                VatRate: $action->VatRate
+            );
+        }
+
+        return $transactionItems;
+    }
 
     /**
      * @return OrderItemDto[]

@@ -115,11 +115,6 @@ class Order
         return $this->paymentTransactions->getStatus($paymentTransactionId);
     }
 
-    public function getPaymentTransactionById(int $paymentTransactionId): ?PaymentTransactionDto
-    {
-        return $this->paymentTransactions->findById($paymentTransactionId);
-    }
-
     public function amountOriginal(): float
     {
         return $this->amountCalculator->original();
@@ -206,7 +201,7 @@ class Order
         return $this->itemsManager->eligibleForCapture();
     }
 
-    public function getUpdateDto(OrderChanges $changes): UpdateItemsDto
+    public function buildUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
         // Get reserved items
         $currentItems = $this->itemsEligableForCapture();
@@ -309,7 +304,7 @@ class Order
         );
     }
 
-    public function getReturnDto(OrderReturns $changes): ReturnItemsDto
+    public function buildReturnDto(OrderReturns $changes): ReturnItemsDto
     {
         $refundAbleItems = $this->itemsEligableForRefund();
 
@@ -397,7 +392,7 @@ class Order
         );
     }
 
-    public function getCaptureDto(OrderCaptures $captures): MarkItemsAsShippedDto
+    public function buildCaptureDto(OrderCaptures $captures): MarkItemsAsShippedDto
     {
         $currentItems = $this->itemsCurrent();
 
@@ -485,45 +480,13 @@ class Order
         );
     }
 
-    public function getOrderItemsForTransaction(int $transactionId): array
-    {
-        $orderItemActions = $this->orderItemActions();
-        if (!$orderItemActions) {
-            return [];
-        }
-
-        $transactionItems = [];
-        foreach ($orderItemActions as $action) {
-            // Skip actions without required fields or not matching the transaction ID
-            if (!$action->MerchantReference ||
-                $action->PricePerItemExVat === null ||
-                $action->Quantity === null ||
-                $action->PaymentTransactionId !== $transactionId) {
-                continue;
-            }
-
-            $transactionItems[] = new OrderItemDto(
-                Description: $action->Description,
-                MerchantReference: $action->MerchantReference,
-                PaymentTransactionId: $action->PaymentTransactionId,
-                PricePerItemExVat: $action->PricePerItemExVat,
-                PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
-                Quantity: $action->Quantity,
-                Type: $action->Type ?? 'Product',
-                VatRate: $action->VatRate
-            );
-        }
-
-        return $transactionItems;
-    }
-
     /**
      * @throws QliroException
      */
     public function getChangesBasedOnTransaction(int $transactionId): OrderReturns|OrderCaptures
     {
-        $transaction = $this->getPaymentTransactionById($transactionId);
-        $orderItems = $this->getOrderItemsForTransaction($transactionId);
+        $transaction = $this->paymentTransactions->findById($transactionId);
+        $orderItems = $this->itemsManager->byTransactionId($transactionId);
         $supportedTransactionTypes = [
             PaymentTransactionType::Refund->value,
             PaymentTransactionType::Capture->value,

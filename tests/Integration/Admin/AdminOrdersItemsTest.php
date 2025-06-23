@@ -116,7 +116,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
         $returns
             ->add('7057320717180',75,2)
             ->add('7057321129814',75,2);
-        $returnDto = $order->getReturnDto($returns);
+        $returnDto = $order->buildReturnDto($returns);
 //        $res = $this->client->admin()->orders()->returnItems($returnDto)->json();
 //
 //        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
@@ -151,7 +151,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
         $orderRef='XX3FT9KB';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
         $returns = $order->getChangesBasedOnTransaction($paymentTransactionId);
-        $returnDto = $order->getReturnDto($returns);
+        $returnDto = $order->buildReturnDto($returns);
         $res = $this->client->admin()->orders()->returnItems($returnDto)->response->json();
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
