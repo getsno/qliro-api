@@ -6,8 +6,6 @@ use Gets\QliroApi\Dtos\Order\AddressDto;
 use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Dtos\Order\CustomerDto;
 use Gets\QliroApi\Dtos\Order\MarkItemsAsShippedDto;
-use Gets\QliroApi\Dtos\Order\MerchantProvidedMetadataDto;
-use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
 use Gets\QliroApi\Dtos\Order\ReturnDto;
@@ -16,9 +14,7 @@ use Gets\QliroApi\Dtos\Order\ShipmentDto;
 use Gets\QliroApi\Dtos\Order\UpdateDto;
 use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Enums\OrderChangeType;
-use Gets\QliroApi\Enums\OrderItemActionType;
 use Gets\QliroApi\Enums\OrderStatus;
-use Gets\QliroApi\Enums\PaymentTransactionStatus;
 use Gets\QliroApi\Enums\PaymentTransactionType;
 use Gets\QliroApi\Exceptions\QliroException;
 
@@ -38,42 +34,52 @@ class Order
         $this->itemsManager = new OrderItemsManager($dto->OrderItemActions, $this->paymentTransactions);
         $this->statusCalculator = new OrderStatusCalculator($this->amountCalculator);
     }
+
     public function orderId(): ?int
     {
         return $this->dto->OrderId;
     }
+
     public function merchantReference(): ?string
     {
         return $this->dto->MerchantReference;
     }
+
     public function country(): ?string
     {
         return $this->dto->Country;
     }
+
     public function currency(): ?string
     {
         return $this->dto->Currency;
     }
+
     public function billingAddress(): ?AddressDto
     {
         return $this->dto->BillingAddress;
     }
+
     public function shippingAddress(): ?AddressDto
     {
         return $this->dto->ShippingAddress;
     }
+
     public function customer(): ?CustomerDto
     {
         return $this->dto->Customer;
     }
+
     public function merchantProvidedMetadata(): ?array
     {
         return $this->dto->MerchantProvidedMetadata;
     }
+
     public function identityVerification(): ?array
     {
         return $this->dto->IdentityVerification;
     }
+
     public function upsell(): ?array
     {
         return $this->dto->Upsell;
@@ -99,59 +105,19 @@ class Order
         return $this->statusCalculator->calculate();
     }
 
-    public function paymentTransactionsSuccessful(): ?array
-    {
-        if ($this->dto->PaymentTransactions === null) {
-            return null;
-        }
-        return array_filter($this->dto->PaymentTransactions, static function (PaymentTransactionDto $transaction) {
-            return $transaction->Status === PaymentTransactionStatus::Success->value;
-        });
-    }
-
     public function orderItemActions(): ?array
     {
         return $this->dto->OrderItemActions;
     }
 
-    public function orderItemActionsSuccessful(): ?array
-    {
-        $successfulTransactions = $this->paymentTransactionsSuccessful();
-        if ($successfulTransactions === null) {
-            return null;
-        }
-
-        $successfullTransIds = array_map(static function (PaymentTransactionDto $transaction) {
-            return $transaction->PaymentTransactionId;
-        }, $successfulTransactions);
-
-        $orderItemActions = $this->orderItemActions();
-        if ($orderItemActions === null) {
-            return null;
-        }
-
-        return array_filter($orderItemActions, static function (OrderItemActionDto $action) use ($successfullTransIds) {
-            return in_array($action->PaymentTransactionId, $successfullTransIds, true);
-        });
-    }
-
     public function getTransactionStatus(int $paymentTransactionId): ?string
     {
-        return $this->getPaymentTransactionById($paymentTransactionId)?->Status;
+        return $this->paymentTransactions->getStatus($paymentTransactionId);
     }
 
     public function getPaymentTransactionById(int $paymentTransactionId): ?PaymentTransactionDto
     {
-        $transactions = $this->paymentTransactions();
-        if (!$transactions) {
-            return null;
-        }
-        foreach ($transactions as $transaction) {
-            if ($transaction->PaymentTransactionId === $paymentTransactionId) {
-                return $transaction;
-            }
-        }
-        return null;
+        return $this->paymentTransactions->findById($paymentTransactionId);
     }
 
     public function amountOriginal(): float
@@ -185,312 +151,65 @@ class Order
     }
 
     /**
-     * Get current order items based on reserved, shipped, and released quantities.
-     *
-     * @return OrderItemDto[] Array of current order items with adjusted quantities
+     * @return OrderItemDto[]
      */
     public function itemsCurrent(): array
     {
-        $orderItemActions = $this->orderItemActionsSuccessful();
-        if (!$orderItemActions) {
-            return [];
-        }
-
-        // Group items by their identity (MerchantReference and PricePerItemExVat)
-        $groupedItems = [];
-        foreach ($orderItemActions as $action) {
-            // Skip actions without required fields
-            if (!$action->MerchantReference || $action->PricePerItemExVat === null || $action->Quantity === null) {
-                continue;
-            }
-
-            // Create a unique key for each item based on MerchantReference and PricePerItemExVat
-            $itemKey = $action->MerchantReference . '_' . $action->PricePerItemExVat;
-
-            if (!isset($groupedItems[$itemKey])) {
-                $groupedItems[$itemKey] = [
-                    'reserved'      => 0,
-                    'shipped'       => 0,
-                    'released'      => 0,
-                    'reserveAction' => null, // Store the Reserve action to use its properties later
-                ];
-            }
-
-            // Update quantities based on action type
-            if ($action->ActionType === OrderItemActionType::Reserve->value) {
-                $groupedItems[$itemKey]['reserved'] += $action->Quantity;
-                // Store the Reserve action for this item if not already set
-                if ($groupedItems[$itemKey]['reserveAction'] === null) {
-                    $groupedItems[$itemKey]['reserveAction'] = $action;
-                }
-            } elseif ($action->ActionType === OrderItemActionType::Ship->value) {
-                $groupedItems[$itemKey]['shipped'] += $action->Quantity;
-            } elseif ($action->ActionType === OrderItemActionType::Release->value) {
-                $groupedItems[$itemKey]['released'] += $action->Quantity;
-            }
-        }
-
-        // Create OrderItemDto objects for items with remaining quantities
-        $currentItems = [];
-        foreach ($groupedItems as $itemData) {
-            // Calculate the remaining quantity (reserved - shipped - released)
-            $remainingQty = $itemData['reserved'] - $itemData['shipped'] - $itemData['released'];
-
-            // Only include items with remaining quantity > 0
-            if ($remainingQty > 0) {
-                // Use the Reserve action as the source of information
-                $reserveAction = $itemData['reserveAction'];
-                if ($reserveAction === null) {
-                    continue; // Skip if no Reserve action is found
-                }
-
-                $currentItems[] = new OrderItemDto(
-                    Description: $reserveAction->Description,
-                    MerchantReference: $reserveAction->MerchantReference,
-                    PaymentTransactionId: $reserveAction->PaymentTransactionId,
-                    PricePerItemExVat: $reserveAction->PricePerItemExVat,
-                    PricePerItemIncVat: $reserveAction->PricePerItemIncVat ?? 0.0,
-                    Quantity: $remainingQty,
-                    Type: $reserveAction->Type ?? 'Product',
-                    VatRate: $reserveAction->VatRate
-                );
-            }
-        }
-
-        return $currentItems;
+        return $this->itemsManager->current();
     }
 
-    public function itemsCancelled(): array
-    {
-        return $this->getOrderItemsByActionType(OrderItemActionType::Release);
-    }
-
-    public function itemsRefunded(): array
-    {
-        return $this->getOrderItemsByActionType(OrderItemActionType::Return);
-    }
-
-    public function itemsCaptured(): array
-    {
-        return $this->getOrderItemsByActionType(OrderItemActionType::Ship);
-    }
-
-    public function itemsEligableForRefund(): array
-    {
-        $orderItemsCaptured = $this->getOrderItemActionsByActionType(OrderItemActionType::Ship);
-        $orderItemsRefunded = $this->getOrderItemActionsByActionType(OrderItemActionType::Return);
-        $orderItemsEligibleForRefund = [];
-
-        // Group captured items by MerchantReference and PricePerItemIncVat
-        $capturedItemsMap = [];
-        foreach ($orderItemsCaptured as $capturedItem) {
-            // Skip items without required fields
-            if (!$capturedItem->MerchantReference ||
-                $capturedItem->PricePerItemIncVat === null ||
-                $capturedItem->Quantity === null ||
-                $capturedItem->PaymentTransactionId === null) {
-                continue;
-            }
-
-            $key = $capturedItem->MerchantReference . '_' . $capturedItem->PricePerItemIncVat;
-
-            if (!isset($capturedItemsMap[$key])) {
-                $capturedItemsMap[$key] = [];
-            }
-
-            // Get the transaction to check its timestamp
-            $transaction = $this->getPaymentTransactionById($capturedItem->PaymentTransactionId);
-            if (!$transaction) {
-                continue;
-            }
-
-            $capturedItemsMap[$key][] = [
-                'item' => $capturedItem,
-                'transaction' => $transaction,
-                'timestamp' => $transaction->Timestamp
-            ];
-        }
-
-        // Group refunded items by MerchantReference and PricePerItemIncVat
-        $refundedItemsMap = [];
-        foreach ($orderItemsRefunded as $refundedItem) {
-            // Skip items without required fields
-            if (!$refundedItem->MerchantReference ||
-                $refundedItem->PricePerItemIncVat === null ||
-                $refundedItem->Quantity === null) {
-                continue;
-            }
-
-            $key = $refundedItem->MerchantReference . '_' . $refundedItem->PricePerItemIncVat;
-
-            if (!isset($refundedItemsMap[$key])) {
-                $refundedItemsMap[$key] = 0;
-            }
-
-            $refundedItemsMap[$key] += $refundedItem->Quantity;
-        }
-
-        // Calculate remaining quantities for each captured item
-        foreach ($capturedItemsMap as $key => $capturedItems) {
-            $refundedQty = $refundedItemsMap[$key] ?? 0;
-
-            // Sort captured items by timestamp (oldest first)
-            usort($capturedItems, function ($a, $b) {
-                return strcmp($a['timestamp'] ?? '', $b['timestamp'] ?? '');
-            });
-
-            // Process each captured item
-            foreach ($capturedItems as $capturedItemData) {
-                $capturedItem = $capturedItemData['item'];
-                $capturedQty = $capturedItem->Quantity;
-
-                // If there are refunded items, subtract them from the captured quantity
-                if ($refundedQty > 0) {
-                    if ($refundedQty >= $capturedQty) {
-                        // This item is fully refunded
-                        $refundedQty -= $capturedQty;
-                        continue;
-                    } else {
-                        // This item is partially refunded
-                        $remainingQty = $capturedQty - $refundedQty;
-                        $refundedQty = 0;
-                    }
-                } else {
-                    // No refunds for this item
-                    $remainingQty = $capturedQty;
-                }
-
-                // Add to eligible items if there's a remaining quantity
-                if ($remainingQty > 0) {
-                    $orderItemsEligibleForRefund[] = [
-                        'Description' => $capturedItem->Description,
-                        'MerchantReference' => $capturedItem->MerchantReference,
-                        'PaymentTransactionId' => $capturedItem->PaymentTransactionId,
-                        'PricePerItemExVat' => $capturedItem->PricePerItemExVat,
-                        'PricePerItemIncVat' => $capturedItem->PricePerItemIncVat,
-                        'Quantity' => $remainingQty,
-                        'Type' => $capturedItem->Type,
-                        'VatRate' => $capturedItem->VatRate
-                    ];
-                }
-            }
-        }
-
-        // Convert to OrderItemDto objects
-        $filteredItems = [];
-        foreach ($orderItemsEligibleForRefund as $action) {
-            $filteredItems[] = new OrderItemDto(
-                Description: $action['Description'],
-                MerchantReference: $action['MerchantReference'],
-                PaymentTransactionId: $action['PaymentTransactionId'],
-                PricePerItemExVat: $action['PricePerItemExVat'],
-                PricePerItemIncVat: $action['PricePerItemIncVat'] ?? 0.0,
-                Quantity: $action['Quantity'],
-                Type: $action['Type'] ?? 'Product',
-                VatRate: $action['VatRate']
-            );
-        }
-
-        return $filteredItems;
-    }
-
+    /**
+     * @return OrderItemDto[]
+     */
     public function itemsReserved(): array
     {
-        return $this->getOrderItemsByActionType(OrderItemActionType::Reserve);
+        return $this->itemsManager->reserved();
     }
 
-    public function itemsNotCancelled(): array
+    /**
+     * @return OrderItemDto[]
+     */
+    public function itemsCancelled(): array
     {
-        // Get reserved items
-        $reservedItems = $this->itemsReserved();
-
-        // Get cancelled items
-        $cancelledItems = $this->itemsCancelled();
-
-        // Create a map of cancelled items by merchant reference and price
-        $cancelledItemsMap = [];
-        foreach ($cancelledItems as $item) {
-            $key = $item->MerchantReference . '_' . $item->PricePerItemExVat;
-            if (!isset($cancelledItemsMap[$key])) {
-                $cancelledItemsMap[$key] = 0;
-            }
-            $cancelledItemsMap[$key] += $item->Quantity;
-        }
-
-        // Create a result array of items that are reserved but not cancelled
-        // (or where the cancelled quantity is less than the reserved quantity)
-        $notCancelledItems = [];
-        foreach ($reservedItems as $item) {
-            $key = $item->MerchantReference . '_' . $item->PricePerItemExVat;
-            $cancelledQty = $cancelledItemsMap[$key] ?? 0;
-
-            // Skip items that have been fully cancelled
-            if ($cancelledQty >= $item->Quantity) {
-                continue;
-            }
-
-            // Calculate the remaining quantity
-            $remainingQty = $item->Quantity - $cancelledQty;
-
-            // Create a new OrderItemDto with the remaining quantity
-            $notCancelledItems[] = new OrderItemDto(
-                Description: $item->Description,
-                MerchantReference: $item->MerchantReference,
-                PaymentTransactionId: $item->PaymentTransactionId,
-                PricePerItemExVat: $item->PricePerItemExVat,
-                PricePerItemIncVat: $item->PricePerItemIncVat,
-                Quantity: $remainingQty,
-                Type: $item->Type,
-                VatRate: $item->VatRate
-            );
-        }
-
-        return $notCancelledItems;
+        return $this->itemsManager->cancelled();
     }
 
-    protected function getOrderItemActionsByActionType(OrderItemActionType $actionType): array
+    /**
+     * @return OrderItemDto[]
+     */
+    public function itemsRefunded(): array
     {
-        $orderItemActions = $this->orderItemActionsSuccessful();
-        if (!$orderItemActions) {
-            return [];
-        }
-        $filteredItems = [];
-        foreach ($orderItemActions as $action) {
-            // Skip actions without required fields
-            if (!$action->MerchantReference || $action->PricePerItemExVat === null || $action->Quantity === null) {
-                continue;
-            }
-            if ($action->ActionType === $actionType->value) {
-                $filteredItems[] = $action;
-            }
-        }
-        return $filteredItems;
+        return $this->itemsManager->refunded();
     }
 
-    protected function getOrderItemsByActionType(OrderItemActionType $actionType): array
+    /**
+     * @return OrderItemDto[]
+     */
+    public function itemsCaptured(): array
     {
-        $orderItemActions = $this->getOrderItemActionsByActionType($actionType);
-        $filteredItems = [];
-        foreach ($orderItemActions as $action) {
-            $filteredItems[] = new OrderItemDto(
-                Description: $action->Description,
-                MerchantReference: $action->MerchantReference,
-                PaymentTransactionId: $action->PaymentTransactionId,
-                PricePerItemExVat: $action->PricePerItemExVat,
-                PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
-                Quantity: $action->Quantity,
-                Type: $action->Type ?? 'Product',
-                VatRate: $action->VatRate
-            );
-        }
+        return $this->itemsManager->captured();
+    }
 
-        return $filteredItems;
+    /**
+     * @return OrderItemDto[]
+     */
+    public function itemsEligableForRefund(): array
+    {
+        return $this->itemsManager->eligibleForRefund();
+    }
+
+    /**
+     * @return OrderItemDto[]
+     */
+    public function itemsEligableForCapture(): array
+    {
+        return $this->itemsManager->eligibleForCapture();
     }
 
     public function getUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
         // Get reserved items
-        $currentItems = $this->itemsNotCancelled();
+        $currentItems = $this->itemsEligableForCapture();
 
         // Create a map of current items by merchant reference and price
         $currentItemsMap = [];

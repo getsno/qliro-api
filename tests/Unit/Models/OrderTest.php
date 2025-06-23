@@ -468,7 +468,7 @@ class OrderTest extends QliroApiTestCase
         $order = new Order($orderDto);
 
         // Get not cancelled order items
-        $notCancelledItems = $order->itemsNotCancelled();
+        $notCancelledItems = $order->itemsEligableForCapture();
 
         // Test number of items (should be 3: PROD-1 with price 100, PROD-3, and PROD-1 with price 80)
         $this->assertCount(3, $notCancelledItems);
