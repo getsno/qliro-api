@@ -118,7 +118,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
             ->add('7057321129814',75,2);
         $returnDto = $order->getReturnDto($returns);
 //        $res = $this->client->admin()->orders()->returnItems($returnDto)->json();
-
+//
 //        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 //        $retryTransactionIds=[];
 //        foreach ($res['PaymentTransactions'] as $paymentTransaction) {
@@ -139,6 +139,8 @@ class AdminOrdersItemsTest extends QliroApiTestCase
 //            }
 //        }
 //        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+//        $retryService = new TransactionRetryService($this->client);
+//        $results = $retryService->processFailedTransactions($orderRef, $res['PaymentTransactions']);
 
         $test=1;
     }
