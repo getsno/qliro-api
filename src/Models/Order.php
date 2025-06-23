@@ -19,6 +19,8 @@ use Gets\QliroApi\Enums\OrderChangeType;
 use Gets\QliroApi\Enums\OrderItemActionType;
 use Gets\QliroApi\Enums\OrderStatus;
 use Gets\QliroApi\Enums\PaymentTransactionStatus;
+use Gets\QliroApi\Enums\PaymentTransactionType;
+use Gets\QliroApi\Exceptions\QliroException;
 
 class Order
 {
@@ -183,18 +185,20 @@ class Order
 
     public function getTransactionStatus(int $paymentTransactionId): ?string
     {
-        $transactions = $this->paymentTransactions();
+        return $this->getPaymentTransactionById($paymentTransactionId)?->Status;
+    }
 
+    public function getPaymentTransactionById(int $paymentTransactionId): ?PaymentTransactionDto
+    {
+        $transactions = $this->paymentTransactions();
         if (!$transactions) {
             return null;
         }
-
         foreach ($transactions as $transaction) {
             if ($transaction->PaymentTransactionId === $paymentTransactionId) {
-                return $transaction->Status;
+                return $transaction;
             }
         }
-
         return null;
     }
 
@@ -603,7 +607,7 @@ class Order
 
             // Check if the item exists in captured items
             if (!isset($capturedItemsMap[$key])) {
-                throw new \Gets\QliroApi\Exceptions\QliroException(
+                throw new QliroException(
                     "Item with MerchantReference '{$return->MerchantReference}' and price {$return->PricePerItemIncVat} not found in captured items"
                 );
             }
@@ -616,7 +620,7 @@ class Order
 
             // Check if return quantity is valid
             if ($return->Quantity > $totalCapturedQty) {
-                throw new \Gets\QliroApi\Exceptions\QliroException(
+                throw new QliroException(
                     "Return quantity {$return->Quantity} exceeds total captured quantity {$totalCapturedQty} for item with MerchantReference '{$return->MerchantReference}' and price {$return->PricePerItemIncVat}"
                 );
             }
@@ -691,7 +695,7 @@ class Order
 
             // Check if the item exists in current items
             if (!isset($currentItemsMap[$key])) {
-                throw new \Gets\QliroApi\Exceptions\QliroException(
+                throw new QliroException(
                     "Item with MerchantReference '{$capture->MerchantReference}' and price {$capture->PricePerItemIncVat} not found in current items"
                 );
             }
@@ -704,7 +708,7 @@ class Order
 
             // Check if capture quantity is valid
             if ($capture->Quantity > $totalCurrentQty) {
-                throw new \Gets\QliroApi\Exceptions\QliroException(
+                throw new QliroException(
                     "Capture quantity {$capture->Quantity} exceeds total current quantity {$totalCurrentQty} for item with MerchantReference '{$capture->MerchantReference}' and price {$capture->PricePerItemIncVat}"
                 );
             }
@@ -756,4 +760,62 @@ class Order
             Shipments: $shipments
         );
     }
+
+    public function getOrderItemsForTransaction(int $transactionId): array
+    {
+        $orderItemActions = $this->orderItemActions();
+        if (!$orderItemActions) {
+            return [];
+        }
+
+        $transactionItems = [];
+        foreach ($orderItemActions as $action) {
+            // Skip actions without required fields or not matching the transaction ID
+            if (!$action->MerchantReference ||
+                $action->PricePerItemExVat === null ||
+                $action->Quantity === null ||
+                $action->PaymentTransactionId !== $transactionId) {
+                continue;
+            }
+
+            $transactionItems[] = new OrderItemDto(
+                Description: $action->Description,
+                MerchantReference: $action->MerchantReference,
+                PaymentTransactionId: $action->PaymentTransactionId,
+                PricePerItemExVat: $action->PricePerItemExVat,
+                PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
+                Quantity: $action->Quantity,
+                Type: $action->Type ?? 'Product',
+                VatRate: $action->VatRate
+            );
+        }
+
+        return $transactionItems;
+    }
+
+    /**
+     * @throws QliroException
+     */
+    public function getChangesBasedOnTransaction(int $transactionId): OrderReturns|OrderCaptures
+    {
+        $transaction = $this->getPaymentTransactionById($transactionId);
+        $orderItems = $this->getOrderItemsForTransaction($transactionId);
+        $supportedTransactionTypes = [
+            PaymentTransactionType::Refund->value,
+            PaymentTransactionType::Capture->value,
+        ];
+        if (!in_array($transaction->Type, $supportedTransactionTypes, true)) {
+            throw new QliroException('Unsupported transaction type');
+        }
+        $changes = match ($transaction->Type) {
+            PaymentTransactionType::Refund->value => new OrderReturns(),
+            PaymentTransactionType::Capture->value => new OrderCaptures(),
+            default => throw new QliroException('Unsupported transaction type'),
+        };
+        foreach ($orderItems as $orderItem) {
+            $changes->add($orderItem->MerchantReference, $orderItem->PricePerItemIncVat, $orderItem->Quantity);
+        }
+        return $changes;
+    }
+
 }

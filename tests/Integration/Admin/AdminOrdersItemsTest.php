@@ -133,7 +133,9 @@ class AdminOrdersItemsTest extends QliroApiTestCase
         $paymentTransactionId = 3294678;
         $orderRef='XX3FT9KB';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
-        $response = $this->client->admin()->transactions()->retryReversalPayment($paymentTransactionId);
+        $returns = $order->getChangesBasedOnTransaction($paymentTransactionId);
+        $returnDto = $order->getReturnDto($returns);
+        $res = $this->client->admin()->orders()->returnItems($returnDto)->json();
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
     }
