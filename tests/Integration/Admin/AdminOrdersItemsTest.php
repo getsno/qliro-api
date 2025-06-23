@@ -15,7 +15,9 @@ use Gets\QliroApi\Exceptions\InvalidPaymentTypeException;
 use Gets\QliroApi\Exceptions\InvalidRequestTotalAmountException;
 use Gets\QliroApi\Exceptions\OperationNotSupportedException;
 use Gets\QliroApi\Exceptions\PaymentReferenceIsIncorrectException;
+use Gets\QliroApi\Models\OrderCaptures;
 use Gets\QliroApi\Models\OrderChanges;
+use Gets\QliroApi\Models\OrderReturns;
 use Gets\QliroApi\Tests\QliroApiTestCase;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -107,18 +109,21 @@ class AdminOrdersItemsTest extends QliroApiTestCase
     // Update Items Tests
 
     public function testUpdateItemsProcess():void {
-        $this->markTestSkipped();
-        $orderRef='CJQ3CFE7';
+        $orderRef='XX3FT9KB';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
-        $changes = new OrderChanges();
-        $changes->decrease('7057320717180',75,2);
-        $dto = $order->getUpdateDto($changes);
-        $response = $this->client->admin()->orders()->updateItems($dto);
-        $payment_transactionId = 3294587;
-        $newDetails = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
-        $newChanges = new OrderChanges();
-        $newChanges->decrease('7057320717180',75,1);
-        $newDto = $order->getUpdateDto($changes);
+//        $captures = new OrderCaptures();
+//        $captures
+//            ->add('7057320717180',75,1)
+//            ->add('7057321129760',75,1);
+//        $shipmentDto = $order->getCaptureDto($captures);
+        $returns = new OrderReturns();
+        $returns
+            ->add('7057320717180',75,2)
+            ->add('7057321129760',75,2);
+        $returnDto = $order->getReturnDto($returns);
+//        $res = $this->client->admin()->orders()->returnItems($returnDto);
+
+        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
         $test=1;
     }
