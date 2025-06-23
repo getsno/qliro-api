@@ -6,19 +6,13 @@ use Gets\QliroApi\Enums\OrderChangeType;
 
 class OrderChange
 {
-    public string $MerchantReference;
-    public float $PricePerItemIncVat;
-
-    public OrderChangeType $Type;
-
-    public ?int $Quantity = null;
-
-    public function __construct(string $MerchantReference, float $PricePerItemIncVat, OrderChangeType $Type, int $Quantity = null)
+    public function __construct(
+        public string $MerchantReference,
+        public float $PricePerItemIncVat,
+        public OrderChangeType $Type,
+        public ?int $Quantity = null
+    )
     {
-        $this->MerchantReference = $MerchantReference;
-        $this->Type = $Type;
-        $this->PricePerItemIncVat = $PricePerItemIncVat;
-        $this->Quantity = $Quantity;
     }
 
     public static function delete(string $MerchantReference, float $PricePerItemIncVat): self

@@ -9,6 +9,7 @@ use Gets\QliroApi\Dtos\Order\MerchantProvidedMetadataDto;
 use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
+use Gets\QliroApi\Dtos\Order\ReturnItemsDto;
 use Gets\QliroApi\Dtos\Order\UpdateDto;
 use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Enums\OrderChangeType;
@@ -575,5 +576,15 @@ class Order
             Currency: $this->currency() ?? 'NOK',
             Updates: $updates
         );
+    }
+
+    public function getReturnDto(OrderReturns $changes): ReturnItemsDto
+    {
+        $capturedItems = $this->itemsCaptured();
+        //based on provided OrderReturns need to provideReturnItemsDto
+        //as item identity we should use $MerchantReference and $PricePerItemIncVat
+        //based on capturedItems we need to collect proper PaymentTransactionId for provided OrderReturn
+        //if Quantity on OrderReturn is more that total quantity for identity from $capturedItems - we should throw an error
+        // if provided qty is less or equals total qty from captures - then we need to group returns by PaymentTransactionId of capture, using available quantity.
     }
 }
