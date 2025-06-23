@@ -9,6 +9,7 @@ use Gets\QliroApi\Dtos\Order\MerchantProvidedMetadataDto;
 use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
+use Gets\QliroApi\Dtos\Order\ReturnDto;
 use Gets\QliroApi\Dtos\Order\ReturnItemsDto;
 use Gets\QliroApi\Dtos\Order\UpdateDto;
 use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
@@ -581,10 +582,88 @@ class Order
     public function getReturnDto(OrderReturns $changes): ReturnItemsDto
     {
         $capturedItems = $this->itemsCaptured();
-        //based on provided OrderReturns need to provideReturnItemsDto
-        //as item identity we should use $MerchantReference and $PricePerItemIncVat
-        //based on capturedItems we need to collect proper PaymentTransactionId for provided OrderReturn
-        //if Quantity on OrderReturn is more that total quantity for identity from $capturedItems - we should throw an error
-        // if provided qty is less or equals total qty from captures - then we need to group returns by PaymentTransactionId of capture, using available quantity.
+
+        // Create a map of captured items by merchant reference and price
+        $capturedItemsMap = [];
+        foreach ($capturedItems as $item) {
+            $key = $item->MerchantReference . '_' . $item->PricePerItemIncVat;
+            if (!isset($capturedItemsMap[$key])) {
+                $capturedItemsMap[$key] = [];
+            }
+            $capturedItemsMap[$key][] = $item;
+        }
+
+        // Group returns by PaymentTransactionId
+        $returnsByTransaction = [];
+
+        foreach ($changes->getReturns() as $return) {
+            $key = $return->MerchantReference . '_' . $return->PricePerItemIncVat;
+
+            // Check if the item exists in captured items
+            if (!isset($capturedItemsMap[$key])) {
+                throw new \Gets\QliroApi\Exceptions\QliroException(
+                    "Item with MerchantReference '{$return->MerchantReference}' and price {$return->PricePerItemIncVat} not found in captured items"
+                );
+            }
+
+            // Calculate total captured quantity for this item
+            $totalCapturedQty = 0;
+            foreach ($capturedItemsMap[$key] as $capturedItem) {
+                $totalCapturedQty += $capturedItem->Quantity;
+            }
+
+            // Check if return quantity is valid
+            if ($return->Quantity > $totalCapturedQty) {
+                throw new \Gets\QliroApi\Exceptions\QliroException(
+                    "Return quantity {$return->Quantity} exceeds total captured quantity {$totalCapturedQty} for item with MerchantReference '{$return->MerchantReference}' and price {$return->PricePerItemIncVat}"
+                );
+            }
+
+            // Distribute return quantity across captured items
+            $remainingQty = $return->Quantity;
+            foreach ($capturedItemsMap[$key] as $capturedItem) {
+                if ($remainingQty <= 0) {
+                    break;
+                }
+
+                // Determine quantity to return from this captured item
+                $qtyToReturn = min($remainingQty, $capturedItem->Quantity);
+                $remainingQty -= $qtyToReturn;
+
+                // Add to returns by transaction
+                $transactionId = $capturedItem->PaymentTransactionId;
+                if (!isset($returnsByTransaction[$transactionId])) {
+                    $returnsByTransaction[$transactionId] = [];
+                }
+
+                // Create a new OrderItemDto for the return
+                $returnsByTransaction[$transactionId][] = new OrderItemDto(
+                    Description: $capturedItem->Description,
+                    MerchantReference: $capturedItem->MerchantReference,
+                    PaymentTransactionId: $capturedItem->PaymentTransactionId,
+                    PricePerItemExVat: $capturedItem->PricePerItemExVat,
+                    PricePerItemIncVat: $capturedItem->PricePerItemIncVat,
+                    Quantity: $qtyToReturn,
+                    Type: $capturedItem->Type,
+                    VatRate: $capturedItem->VatRate
+                );
+            }
+        }
+
+        // Create ReturnDto objects for each transaction
+        $returns = [];
+        foreach ($returnsByTransaction as $transactionId => $items) {
+            $returns[] = new ReturnDto(
+                PaymentTransactionId: $transactionId,
+                OrderItems: $items
+            );
+        }
+
+        // Create ReturnItemsDto
+        return new ReturnItemsDto(
+            OrderId: $this->orderId() ?? 0,
+            Currency: $this->currency() ?? 'NOK',
+            Returns: $returns
+        );
     }
 }

@@ -26,4 +26,10 @@ class OrderReturns
     {
         return !empty($this->returns);
     }
+
+    public function add(string $merchantReference, float $PricePerItemIncVat, int $quantity): self
+    {
+        $this->returns[] = OrderReturn::make($merchantReference, $PricePerItemIncVat, $quantity);
+        return $this;
+    }
 }
