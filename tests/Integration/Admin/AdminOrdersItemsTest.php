@@ -120,12 +120,22 @@ class AdminOrdersItemsTest extends QliroApiTestCase
         $returns
             ->add('7057320717180',75,2)
             ->add('7057321129760',75,2);
-        $returnDto = $order->getReturnDto($returns);
+//        $returnDto = $order->getReturnDto($returns);
 //        $res = $this->client->admin()->orders()->returnItems($returnDto);
 
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
         $test=1;
+    }
+
+    public function testCancelTransRetry() :void {
+        $this->markTestSkipped();
+        $paymentTransactionId = 3294678;
+        $orderRef='XX3FT9KB';
+        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+        $response = $this->client->admin()->transactions()->retryReversalPayment($paymentTransactionId);
+        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+
     }
 
     public function testUpdateItemsWorks(): void
