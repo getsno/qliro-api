@@ -25,90 +25,78 @@ use Gets\QliroApi\Exceptions\QliroException;
 class Order
 {
     public AdminOrderDetailsDto $dto;
+    private OrderPaymentTransactions $paymentTransactions;
+    private OrderAmountCalculator $amountCalculator;
+    private OrderItemsManager $itemsManager;
+    private OrderStatusCalculator $statusCalculator;
 
     public function __construct(AdminOrderDetailsDto $dto)
     {
         $this->dto = $dto;
+        $this->paymentTransactions = new OrderPaymentTransactions($dto->PaymentTransactions);
+        $this->amountCalculator = new OrderAmountCalculator($this->paymentTransactions);
+        $this->itemsManager = new OrderItemsManager($dto->OrderItemActions, $this->paymentTransactions);
+        $this->statusCalculator = new OrderStatusCalculator($this->amountCalculator);
     }
-
-    /**
-     * Retrieves the order ID.
-     *
-     * @return int|null The order ID or null if not available.
-     */
     public function orderId(): ?int
     {
         return $this->dto->OrderId;
     }
-
-    /**
-     * Retrieves the merchant reference.
-     *
-     * @return string|null The merchant reference or null if not available.
-     */
     public function merchantReference(): ?string
     {
         return $this->dto->MerchantReference;
     }
-
-    /**
-     * Retrieves the country.
-     *
-     * @return string|null The country or null if not available.
-     */
     public function country(): ?string
     {
         return $this->dto->Country;
     }
-
-    /**
-     * Retrieves the currency.
-     *
-     * @return string|null The currency or null if not available.
-     */
     public function currency(): ?string
     {
         return $this->dto->Currency;
     }
-
-    /**
-     * Retrieves the billing address.
-     *
-     * @return AddressDto|null The billing address or null if not available.
-     */
     public function billingAddress(): ?AddressDto
     {
         return $this->dto->BillingAddress;
     }
-
-    /**
-     * Retrieves the shipping address.
-     *
-     * @return AddressDto|null The shipping address or null if not available.
-     */
     public function shippingAddress(): ?AddressDto
     {
         return $this->dto->ShippingAddress;
     }
-
-    /**
-     * Retrieves the customer information.
-     *
-     * @return CustomerDto|null The customer information or null if not available.
-     */
     public function customer(): ?CustomerDto
     {
         return $this->dto->Customer;
     }
-
-    /**
-     * Retrieves the payment transactions.
-     *
-     * @return PaymentTransactionDto[]|null An array of payment transactions or null if no transactions are available.
-     */
-    public function paymentTransactions(): ?array
+    public function merchantProvidedMetadata(): ?array
     {
-        return $this->dto->PaymentTransactions;
+        return $this->dto->MerchantProvidedMetadata;
+    }
+    public function identityVerification(): ?array
+    {
+        return $this->dto->IdentityVerification;
+    }
+    public function upsell(): ?array
+    {
+        return $this->dto->Upsell;
+    }
+
+    public function paymentTransactions(): OrderPaymentTransactions
+    {
+        return $this->paymentTransactions;
+    }
+
+    public function amounts(): OrderAmountCalculator
+    {
+        return $this->amountCalculator;
+    }
+
+    public function items(): OrderItemsManager
+    {
+        return $this->itemsManager;
+    }
+
+    public function status(): OrderStatus
+    {
+        return $this->statusCalculator->calculate();
     }
 
     public function paymentTransactionsSuccessful(): ?array
@@ -121,11 +109,6 @@ class Order
         });
     }
 
-    /**
-     * Retrieves the order item actions.
-     *
-     * @return OrderItemActionDto[]|null An array of order item actions or null if no actions are available.
-     */
     public function orderItemActions(): ?array
     {
         return $this->dto->OrderItemActions;
@@ -147,40 +130,9 @@ class Order
             return null;
         }
 
-        return array_filter($orderItemActions, function (OrderItemActionDto $action) use ($successfullTransIds) {
+        return array_filter($orderItemActions, static function (OrderItemActionDto $action) use ($successfullTransIds) {
             return in_array($action->PaymentTransactionId, $successfullTransIds, true);
         });
-    }
-
-
-    /**
-     * Retrieves the merchant provided metadata.
-     *
-     * @return MerchantProvidedMetadataDto[]|null An array of merchant provided metadata or null if no metadata is available.
-     */
-    public function merchantProvidedMetadata(): ?array
-    {
-        return $this->dto->MerchantProvidedMetadata;
-    }
-
-    /**
-     * Retrieves the identity verification information.
-     *
-     * @return array|null The identity verification information or null if not available.
-     */
-    public function identityVerification(): ?array
-    {
-        return $this->dto->IdentityVerification;
-    }
-
-    /**
-     * Retrieves the upsell information.
-     *
-     * @return array|null The upsell information or null if not available.
-     */
-    public function upsell(): ?array
-    {
-        return $this->dto->Upsell;
     }
 
     public function getTransactionStatus(int $paymentTransactionId): ?string
@@ -204,80 +156,32 @@ class Order
 
     public function amountOriginal(): float
     {
-        $transactions = $this->paymentTransactionsSuccessful();
-        if (!$transactions) {
-            return 0.0;
-        }
-
-        $total = 0.0;
-        foreach ($transactions as $transaction) {
-            if ($transaction->Type === 'Preauthorization' && $transaction->Amount !== null) {
-                $total += $transaction->Amount;
-            }
-        }
-
-        return $total;
+        return $this->amountCalculator->original();
     }
 
     public function amountCaptured(): float
     {
-        $transactions = $this->paymentTransactionsSuccessful();
-        if (!$transactions) {
-            return 0.0;
-        }
-
-        $total = 0.0;
-        foreach ($transactions as $transaction) {
-            if ($transaction->Type === 'Capture' && $transaction->Amount !== null) {
-                $total += $transaction->Amount;
-            }
-        }
-
-        return $total;
+        return $this->amountCalculator->captured();
     }
 
     public function amountRefunded(): float
     {
-        $transactions = $this->paymentTransactionsSuccessful();
-        if (!$transactions) {
-            return 0.0;
-        }
-
-        $total = 0.0;
-        foreach ($transactions as $transaction) {
-            if ($transaction->Type === 'Refund' && $transaction->Amount !== null) {
-                $total += $transaction->Amount;
-            }
-        }
-
-        return $total;
+        return $this->amountCalculator->refunded();
     }
 
     public function amountCancelled(): float
     {
-        $transactions = $this->paymentTransactionsSuccessful();
-        if (!$transactions) {
-            return 0.0;
-        }
-
-        $total = 0.0;
-        foreach ($transactions as $transaction) {
-            if ($transaction->Type === 'Reversal' && $transaction->Amount !== null) {
-                $total += $transaction->Amount;
-            }
-        }
-
-        return $total;
+        return $this->amountCalculator->cancelled();
     }
 
     public function amountRemaining(): float
     {
-        return $this->amountOriginal() - $this->amountCaptured() - $this->amountCancelled();
+        return $this->amountCalculator->remaining();
     }
 
     public function amountTotal(): float
     {
-        return $this->amountCaptured() - $this->amountRefunded() + $this->amountRemaining();
+        return $this->amountCalculator->total();
     }
 
     /**
@@ -582,32 +486,6 @@ class Order
 
         return $filteredItems;
     }
-
-    public function status(): OrderStatus
-    {
-        if ($this->amountOriginal() === $this->amountCancelled()) {
-            return OrderStatus::Cancelled;
-        }
-
-        if ($this->amountRefunded() === $this->amountOriginal()) {
-            return OrderStatus::Refunded;
-        }
-
-        if ($this->amountTotal() > 0.0 && $this->amountRefunded() !== 0.0) {
-            return OrderStatus::PartiallyRefunded;
-        }
-
-        if ($this->amountCaptured() !== 0.0 && $this->amountRemaining() !== 0.0) {
-            return OrderStatus::PartiallyCompleted;
-        }
-
-        if ($this->amountRemaining() === 0.0) {
-            return OrderStatus::Completed;
-        }
-
-        return OrderStatus::New;
-    }
-
 
     public function getUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
