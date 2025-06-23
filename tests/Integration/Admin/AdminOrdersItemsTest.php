@@ -15,6 +15,7 @@ use Gets\QliroApi\Exceptions\InvalidPaymentTypeException;
 use Gets\QliroApi\Exceptions\InvalidRequestTotalAmountException;
 use Gets\QliroApi\Exceptions\OperationNotSupportedException;
 use Gets\QliroApi\Exceptions\PaymentReferenceIsIncorrectException;
+use Gets\QliroApi\Models\Order;
 use Gets\QliroApi\Models\OrderCaptures;
 use Gets\QliroApi\Models\OrderChanges;
 use Gets\QliroApi\Models\OrderReturns;
@@ -111,19 +112,33 @@ class AdminOrdersItemsTest extends QliroApiTestCase
     public function testUpdateItemsProcess():void {
         $orderRef='XX3FT9KB';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
-//        $captures = new OrderCaptures();
-//        $captures
-//            ->add('7057320717180',75,1)
-//            ->add('7057321129760',75,1);
-//        $shipmentDto = $order->getCaptureDto($captures);
         $returns = new OrderReturns();
         $returns
             ->add('7057320717180',75,2)
-            ->add('7057321129760',75,2);
-//        $returnDto = $order->getReturnDto($returns);
-//        $res = $this->client->admin()->orders()->returnItems($returnDto);
+            ->add('7057321129814',75,2);
+        $returnDto = $order->getReturnDto($returns);
+//        $res = $this->client->admin()->orders()->returnItems($returnDto)->json();
 
-        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+//        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+//        $retryTransactionIds=[];
+//        foreach ($res['PaymentTransactions'] as $paymentTransaction) {
+//            $paymentTransactionId = $paymentTransaction['PaymentTransactionId'];
+//            if($order->getTransactionStatus($paymentTransactionId) !== PaymentTransactionStatus::Success->value) {
+//                $retryDto = $order->getReturnDto($order->getChangesBasedOnTransaction($paymentTransactionId));
+//                $resSecond = $this->client->admin()->orders()->returnItems($retryDto)->json();
+//                $retryTransactionIds = array_values(array_merge($retryTransactionIds, $resSecond['PaymentTransactions']));
+//            }
+//        }
+//        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+//        foreach ($retryTransactionIds as $paymentTransaction) {
+//            $paymentTransactionId = $paymentTransaction['PaymentTransactionId'];
+//            if($order->getTransactionStatus($paymentTransactionId) !== PaymentTransactionStatus::Success->value) {
+//                $retryDto = $order->getReturnDto($order->getChangesBasedOnTransaction($paymentTransactionId));
+//                $resSecond = $this->client->admin()->orders()->returnItems($retryDto)->json();
+//                $retryTransactionIds = array_values(array_merge($retryTransactionIds, $resSecond['PaymentTransactions']));
+//            }
+//        }
+//        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
         $test=1;
     }

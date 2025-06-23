@@ -371,6 +371,37 @@ class Order
         return $this->getOrderItemsByActionType(OrderItemActionType::Ship);
     }
 
+    public function itemsEligableForRefund(): array
+    {
+        $orderItemsCaptured = $this->getOrderItemActionsByActionType(OrderItemActionType::Ship);
+        $orderItemsRefunded = $this->getOrderItemActionsByActionType(OrderItemActionType::Return);
+        $orderItemsEligibleForRefund = [];
+        //need to subtract $orderItemsRefunded from order $orderItemsCaptured
+        //as identity we should use MerchantReference and PricePerItemIncVat
+        //subtract should be calculated based on connected PaymentTransactionId Timestamp, $transaction PaymentTransactionDto
+        //can be obtained with $this->getPaymentTransactionById($item->ProviderTransactionId)
+        //as result we need to provide OrderItemDto with remaining qties, as PaymentTransactionId we should use Transaction Id from capture item.
+
+
+
+
+        $filteredItems = [];
+        foreach ($orderItemsEligibleForRefund as $action) {
+            $filteredItems[] = new OrderItemDto(
+                Description: $action->Description,
+                MerchantReference: $action->MerchantReference,
+                PaymentTransactionId: $action->PaymentTransactionId,
+                PricePerItemExVat: $action->PricePerItemExVat,
+                PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
+                Quantity: $action->Quantity,
+                Type: $action->Type ?? 'Product',
+                VatRate: $action->VatRate
+            );
+        }
+
+        return $filteredItems;
+    }
+
     public function itemsReserved(): array
     {
         return $this->getOrderItemsByActionType(OrderItemActionType::Reserve);
@@ -425,34 +456,42 @@ class Order
         return $notCancelledItems;
     }
 
-    protected function getOrderItemsByActionType(OrderItemActionType $actionType): array
+    protected function getOrderItemActionsByActionType(OrderItemActionType $actionType): array
     {
         $orderItemActions = $this->orderItemActionsSuccessful();
         if (!$orderItemActions) {
             return [];
         }
-
         $filteredItems = [];
         foreach ($orderItemActions as $action) {
             // Skip actions without required fields
             if (!$action->MerchantReference || $action->PricePerItemExVat === null || $action->Quantity === null) {
                 continue;
             }
-
-            // Filter actions by Reserve type
             if ($action->ActionType === $actionType->value) {
-                $filteredItems[] = new OrderItemDto(
-                    Description: $action->Description,
-                    MerchantReference: $action->MerchantReference,
-                    PaymentTransactionId: $action->PaymentTransactionId,
-                    PricePerItemExVat: $action->PricePerItemExVat,
-                    PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
-                    Quantity: $action->Quantity,
-                    Type: $action->Type ?? 'Product',
-                    VatRate: $action->VatRate
-                );
+                $filteredItems[] = $action;
             }
         }
+        return $filteredItems;
+    }
+
+    protected function getOrderItemsByActionType(OrderItemActionType $actionType): array
+    {
+        $orderItemActions = $this->getOrderItemActionsByActionType($actionType);
+        $filteredItems = [];
+        foreach ($orderItemActions as $action) {
+            $filteredItems[] = new OrderItemDto(
+                Description: $action->Description,
+                MerchantReference: $action->MerchantReference,
+                PaymentTransactionId: $action->PaymentTransactionId,
+                PricePerItemExVat: $action->PricePerItemExVat,
+                PricePerItemIncVat: $action->PricePerItemIncVat ?? 0.0,
+                Quantity: $action->Quantity,
+                Type: $action->Type ?? 'Product',
+                VatRate: $action->VatRate
+            );
+        }
+
         return $filteredItems;
     }
 
