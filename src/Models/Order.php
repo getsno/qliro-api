@@ -5,6 +5,7 @@ namespace Gets\QliroApi\Models;
 use Gets\QliroApi\Dtos\Order\AddressDto;
 use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Dtos\Order\CustomerDto;
+use Gets\QliroApi\Dtos\Order\MarkItemsAsShippedDto;
 use Gets\QliroApi\Dtos\Order\MerchantProvidedMetadataDto;
 use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
@@ -665,5 +666,15 @@ class Order
             Currency: $this->currency() ?? 'NOK',
             Returns: $returns
         );
+    }
+
+    public function getCaptureDto(OrderCaptures $captures): MarkItemsAsShippedDto
+    {
+        $currentItems = $this->itemsCurrent();
+        //based on provided OrderCaptures need to provide MarkItemsAsShippedDto
+        //as item identity we should use $MerchantReference and $PricePerItemIncVat
+        //based on $currentItems we need to collect proper PaymentTransactionId for provided OrderCapture
+        //if Quantity on OrderCapture is more that total quantity for identity from $currentItems - we should throw an error
+        // if provided qty is less or equals total qty from $currentItems - then we need to group Shipments by PaymentTransactionId of current items, using available quantity.
     }
 }
