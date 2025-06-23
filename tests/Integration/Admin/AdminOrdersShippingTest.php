@@ -55,7 +55,7 @@ class AdminOrdersShippingTest extends QliroApiTestCase
         ];
         $dto = MarkItemsAsShippedDto::fromStdClass($data);
 
-        $response = $this->client->admin()->orders()->markItemsAsShipped($dto);
+        $this->client->admin()->orders()->markItemsAsShipped($dto);
     }
 
     public function testMarkItemsAsShippedWithError(): void
@@ -70,10 +70,10 @@ class AdminOrdersShippingTest extends QliroApiTestCase
         $data = [
             'OrderId'   => 123,
             'Currency'  => 'NOK',
-            'Shipments' => []
+            'Shipments' => [],
         ];
         $this->expectException(OperationNotSupportedException::class);
-        $dto=MarkItemsAsShippedDto::fromStdClass($data);
+        $dto = MarkItemsAsShippedDto::fromStdClass($data);
         $this->client->admin()->orders()->markItemsAsShipped($dto);
     }
 
@@ -89,10 +89,10 @@ class AdminOrdersShippingTest extends QliroApiTestCase
         $data = [
             'OrderId'   => 123,
             'Currency'  => 'NOK',
-            'Shipments' => []
+            'Shipments' => [],
         ];
         $this->expectException(InvalidItemException::class);
-        $dto=MarkItemsAsShippedDto::fromStdClass($data);
+        $dto = MarkItemsAsShippedDto::fromStdClass($data);
         $this->client->admin()->orders()->markItemsAsShipped($dto);
     }
 
@@ -108,10 +108,10 @@ class AdminOrdersShippingTest extends QliroApiTestCase
         $data = [
             'OrderId'   => 123,
             'Currency'  => 'NOK',
-            'Shipments' => []
+            'Shipments' => [],
         ];
         $this->expectException(PaymentReferenceIsIncorrectException::class);
-        $dto=MarkItemsAsShippedDto::fromStdClass($data);
+        $dto = MarkItemsAsShippedDto::fromStdClass($data);
         $this->client->admin()->orders()->markItemsAsShipped($dto);
     }
 
@@ -119,19 +119,24 @@ class AdminOrdersShippingTest extends QliroApiTestCase
     {
         $this->client->withMockClient(new MockClient([
             MarkItemsAsShippedRequest::class => MockResponse::make(body: [
-                'PaymentTransactionId' => 3293033,
-                'Status'               => 'Created',
+                'PaymentTransactions' => [
+                    [
+                        'PaymentTransactionId' => 3293033,
+                        'Status'               => 'Created',
+                    ],
+                ],
+
             ], status: 200),
         ]));
         $data = [
             'OrderId'   => 123,
             'Currency'  => 'NOK',
-            'Shipments' => []
+            'Shipments' => [],
         ];
-        $dto=MarkItemsAsShippedDto::fromStdClass($data);
-        $response = $this->client->admin()->orders()->markItemsAsShipped($dto);
-        $this->assertTrue(array_key_exists('PaymentTransactionId', $response->json()));
-        $this->assertTrue(array_key_exists('Status', $response->json()));
-        $this->assertEquals(PaymentTransactionStatus::Created->value, $response->json()['Status']);
+        $dto = MarkItemsAsShippedDto::fromStdClass($data);
+        $response = $this->client->admin()->orders()->markItemsAsShipped($dto)->response;
+        $this->assertTrue(array_key_exists('PaymentTransactionId', $response->json()['PaymentTransactions'][0]));
+        $this->assertTrue(array_key_exists('Status', $response->json()['PaymentTransactions'][0]));
+        $this->assertEquals(PaymentTransactionStatus::Created->value, $response->json()['PaymentTransactions'][0]['Status']);
     }
 }

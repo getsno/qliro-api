@@ -98,7 +98,7 @@ class TransactionRetryService
 
         $changes = $order->getChangesBasedOnTransaction($paymentTransactionId);
         $retryDto = $order->getReturnDto($changes);
-        $retryResponse = $this->client->admin()->orders()->returnItems($retryDto)->json();
+        $retryResponse = $this->client->admin()->orders()->returnItems($retryDto)->response->json();
 
         return [
             'transaction_id'   => $paymentTransactionId,

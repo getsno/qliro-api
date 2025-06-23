@@ -38,15 +38,20 @@ class AdminOrdersCancelTest extends QliroApiTestCase
         $testOrderId = 4944662;
         $this->client->withMockClient(new MockClient([
             CancelOrderRequest::class => MockResponse::make(body: [
-                'PaymentTransactionId' => 1234,
-                'Status'               => 'Created',
+                'PaymentTransactions' => [
+                    [
+                        'PaymentTransactionId' => 1234,
+                        'Status'               => 'Created',
+                    ],
+
+                ],
             ], status: 200),
         ]));
 
-        $cancelResponse = $this->client->admin()->orders()->cancelOrder($testOrderId);
-        $this->assertTrue(array_key_exists('PaymentTransactionId', $cancelResponse->json()));
-        $this->assertTrue(array_key_exists('Status', $cancelResponse->json()));
-        $this->assertEquals(PaymentTransactionStatus::Created->value, $cancelResponse->json()['Status']);
+        $cancelResponse = $this->client->admin()->orders()->cancelOrder($testOrderId)->response;
+        $this->assertTrue(array_key_exists('PaymentTransactionId', $cancelResponse->json()['PaymentTransactions'][0]));
+        $this->assertTrue(array_key_exists('Status', $cancelResponse->json()['PaymentTransactions'][0]));
+        $this->assertEquals(PaymentTransactionStatus::Created->value, $cancelResponse->json()['PaymentTransactions'][0]['Status']);
     }
 
     public function testCancelOrderFailsOnCancelledOrderWorks(): void

@@ -62,7 +62,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
             ],
         ];
 
-        $response = $this->client->admin()->orders()->addOrderItems($data);
+        $response = $this->client->admin()->orders()->addOrderItems($data)->response;
     }
 
     public function testAddOrderWithWrongTransaction(): void
@@ -152,7 +152,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
         $returns = $order->getChangesBasedOnTransaction($paymentTransactionId);
         $returnDto = $order->getReturnDto($returns);
-        $res = $this->client->admin()->orders()->returnItems($returnDto)->json();
+        $res = $this->client->admin()->orders()->returnItems($returnDto)->response->json();
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
     }
@@ -194,7 +194,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
             ],
         ];
 
-        $response = $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
+        $this->client->admin()->orders()->updateItems(UpdateItemsDto::fromStdClass($data));
     }
 
     public function testUpdateItemsWithError(): void
@@ -381,13 +381,17 @@ class AdminOrdersItemsTest extends QliroApiTestCase
 
         $this->client->withMockClient(new MockClient([
             ReturnItemsRequest::class => MockResponse::make(body: [
-                'PaymentTransactionId' => 3293033,
-                'Status' => 'Created',
+                'PaymentTransactions'=>[
+                    [
+                        'PaymentTransactionId' => 3293033,
+                        'Status' => 'Created',
+                    ]
+                ]
             ], status: 200),
         ]));
-        $response = $this->client->admin()->orders()->returnItems(ReturnItemsDto::fromStdClass($data));
-        $this->assertTrue(array_key_exists('PaymentTransactionId', $response->json()));
-        $this->assertTrue(array_key_exists('Status', $response->json()));
-        $this->assertEquals(PaymentTransactionStatus::Created->value, $response->json()['Status']);
+        $response = $this->client->admin()->orders()->returnItems(ReturnItemsDto::fromStdClass($data))->response;
+        $this->assertTrue(array_key_exists('PaymentTransactionId', $response->json()['PaymentTransactions'][0]));
+        $this->assertTrue(array_key_exists('Status', $response->json()['PaymentTransactions'][0]));
+        $this->assertEquals(PaymentTransactionStatus::Created->value, $response->json()['PaymentTransactions'][0]['Status']);
     }
 }

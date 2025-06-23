@@ -12,6 +12,7 @@ use Gets\QliroApi\Api\Requests\Admin\Orders\ReturnItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateItemsRequest;
 use Gets\QliroApi\Api\Requests\Admin\Orders\UpdateMerchantReferenceRequest;
 use Gets\QliroApi\Api\Responses\Admin\Orders\GetOrderResponse;
+use Gets\QliroApi\Api\Responses\Admin\Orders\TransactionsCreatedResponse;
 use Gets\QliroApi\Dtos\Order\ReturnItemsDto;
 use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
 use Gets\QliroApi\Exceptions\QliroException;
@@ -29,9 +30,9 @@ class OrdersResource extends BaseResource
      * @throws QliroException When API returns an error response
      *
      */
-    public function addOrderItems(array $orderItemData): Response
+    public function addOrderItems(array $orderItemData): TransactionsCreatedResponse
     {
-        return $this->connector->send(new AddOrderItemsRequest($orderItemData));
+        return TransactionsCreatedResponse::fromResponse($this->connector->send(new AddOrderItemsRequest($orderItemData)));
     }
 
     /**
@@ -39,9 +40,9 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function cancelOrder(int $orderId): Response
+    public function cancelOrder(int $orderId): TransactionsCreatedResponse
     {
-        return $this->connector->send(new CancelOrderRequest($orderId));
+        return TransactionsCreatedResponse::fromResponse($this->connector->send(new CancelOrderRequest($orderId)));
     }
 
     /**
@@ -72,9 +73,9 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function markItemsAsShipped(MarkItemsAsShippedDto $data): Response
+    public function markItemsAsShipped(MarkItemsAsShippedDto $data): TransactionsCreatedResponse
     {
-        return $this->connector->send(new MarkItemsAsShippedRequest($data->toArray()));
+        return TransactionsCreatedResponse::fromResponse($this->connector->send(new MarkItemsAsShippedRequest($data->toArray())));
     }
 
     /**
@@ -85,9 +86,9 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function updateItems(UpdateItemsDto $data): Response
+    public function updateItems(UpdateItemsDto $data): TransactionsCreatedResponse
     {
-        return $this->connector->send(new UpdateItemsRequest($data->toArray()));
+        return TransactionsCreatedResponse::fromResponse($this->connector->send(new UpdateItemsRequest($data->toArray())));
     }
 
     /**
@@ -98,9 +99,9 @@ class OrdersResource extends BaseResource
      * @throws RequestException
      * @throws QliroException When API returns an error response
      */
-    public function returnItems(ReturnItemsDto $data): Response
+    public function returnItems(ReturnItemsDto $data): TransactionsCreatedResponse
     {
-        return $this->connector->send(new ReturnItemsRequest($data->toArray()));
+        return TransactionsCreatedResponse::fromResponse($this->connector->send(new ReturnItemsRequest($data->toArray())));
     }
 
     /**
