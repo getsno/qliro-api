@@ -100,8 +100,8 @@ class OrderReturnDtoBuilder
 
         // Create ReturnItemsDto
         return new ReturnItemsDto(
-            OrderId: $this->orderId() ?? 0,
-            Currency: $this->currency() ?? 'NOK',
+            OrderId: $this->order->orderId() ?? 0,
+            Currency: $this->order->currency() ?? 'NOK',
             Returns: $returns
         );
     }

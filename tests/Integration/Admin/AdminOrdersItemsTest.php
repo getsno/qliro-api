@@ -19,6 +19,7 @@ use Gets\QliroApi\Models\Order;
 use Gets\QliroApi\Models\OrderCaptures;
 use Gets\QliroApi\Models\OrderChanges;
 use Gets\QliroApi\Models\OrderReturns;
+use Gets\QliroApi\Services\TransactionRetryService;
 use Gets\QliroApi\Tests\QliroApiTestCase;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -118,7 +119,7 @@ class AdminOrdersItemsTest extends QliroApiTestCase
             ->add('7057320717180',75,2)
             ->add('7057321129814',75,2);
         $returnDto = $order->buildReturnDto($returns);
-//        $res = $this->client->admin()->orders()->returnItems($returnDto)->json();
+        $res = $this->client->admin()->orders()->returnItems($returnDto)->dto->toArray();
 //
 //        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 //        $retryTransactionIds=[];
@@ -140,8 +141,8 @@ class AdminOrdersItemsTest extends QliroApiTestCase
 //            }
 //        }
 //        $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
-//        $retryService = new TransactionRetryService($this->client);
-//        $results = $retryService->processFailedTransactions($orderRef, $res['PaymentTransactions']);
+        $retryService = new TransactionRetryService($this->client);
+        $results = $retryService->processFailedTransactions($orderRef, $res);
 
         $test=1;
     }

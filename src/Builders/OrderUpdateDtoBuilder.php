@@ -115,8 +115,8 @@ class OrderUpdateDtoBuilder
 
         // Create UpdateItemsDto
         return new UpdateItemsDto(
-            OrderId: $this->orderId() ?? 0,
-            Currency: $this->currency() ?? 'NOK',
+            OrderId: $this->order->orderId() ?? 0,
+            Currency: $this->order->currency() ?? 'NOK',
             Updates: $updates
         );
     }

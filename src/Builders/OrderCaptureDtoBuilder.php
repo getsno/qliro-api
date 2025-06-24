@@ -104,8 +104,8 @@ class OrderCaptureDtoBuilder
 
         // Create MarkItemsAsShippedDto
         return new MarkItemsAsShippedDto(
-            OrderId: $this->orderId() ?? 0,
-            Currency: $this->currency() ?? 'NOK',
+            OrderId: $this->order->orderId() ?? 0,
+            Currency: $this->order->currency() ?? 'NOK',
             Shipments: $shipments
         );
     }
