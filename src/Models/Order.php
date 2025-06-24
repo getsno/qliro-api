@@ -2,6 +2,7 @@
 
 namespace Gets\QliroApi\Models;
 
+use Gets\QliroApi\Builders\OrderReturnDtoBuilder;
 use Gets\QliroApi\Builders\OrderUpdateDtoBuilder;
 use Gets\QliroApi\Dtos\Order\AddressDto;
 use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
@@ -205,193 +206,14 @@ class Order
     public function buildUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
          return new OrderUpdateDtoBuilder($this)->build($changes);
-        // Get reserved items
-        $currentItems = $this->itemsEligableForCapture();
-
-        // Create a map of current items by merchant reference and price
-        $currentItemsMap = [];
-        foreach ($currentItems as $item) {
-            $key = $item->MerchantReference . '_' . $item->PricePerItemIncVat;
-            $currentItemsMap[$key] = $item;
-        }
-
-        // Apply changes to current items
-        foreach ($changes->getChanges() as $change) {
-            $key = $change->MerchantReference . '_' . $change->PricePerItemIncVat;
-
-            // Skip if item doesn't exist in current items
-            if (!isset($currentItemsMap[$key])) {
-                continue;
-            }
-
-            // Apply change based on type
-            switch ($change->Type) {
-                case OrderChangeType::Delete:
-                    // Remove item from map
-                    unset($currentItemsMap[$key]);
-                    break;
-
-                case OrderChangeType::Decrease:
-                    // Decrease quantity
-                    if ($change->Quantity !== null) {
-                        $newQuantity = $currentItemsMap[$key]->Quantity - $change->Quantity;
-                        if ($newQuantity <= 0) {
-                            unset($currentItemsMap[$key]);
-                        } else {
-                            // Update quantity
-                            $currentItemsMap[$key] = new OrderItemDto(
-                                Description: $currentItemsMap[$key]->Description,
-                                MerchantReference: $currentItemsMap[$key]->MerchantReference,
-                                PaymentTransactionId: $currentItemsMap[$key]->PaymentTransactionId,
-                                PricePerItemExVat: $currentItemsMap[$key]->PricePerItemExVat,
-                                PricePerItemIncVat: $currentItemsMap[$key]->PricePerItemIncVat,
-                                Quantity: $newQuantity,
-                                Type: $currentItemsMap[$key]->Type,
-                                VatRate: $currentItemsMap[$key]->VatRate
-                            );
-                        }
-                    }
-                    break;
-
-                case OrderChangeType::Replace:
-                    // Replace quantity
-                    if ($change->Quantity !== null) {
-                        if ($change->Quantity <= 0) {
-                            // If quantity is zero or negative, remove item
-                            unset($currentItemsMap[$key]);
-                        } else {
-                            // Update quantity
-                            $currentItemsMap[$key] = new OrderItemDto(
-                                Description: $currentItemsMap[$key]->Description,
-                                MerchantReference: $currentItemsMap[$key]->MerchantReference,
-                                PaymentTransactionId: $currentItemsMap[$key]->PaymentTransactionId,
-                                PricePerItemExVat: $currentItemsMap[$key]->PricePerItemExVat,
-                                PricePerItemIncVat: $currentItemsMap[$key]->PricePerItemIncVat,
-                                Quantity: $change->Quantity,
-                                Type: $currentItemsMap[$key]->Type,
-                                VatRate: $currentItemsMap[$key]->VatRate
-                            );
-                        }
-                    }
-                    break;
-            }
-        }
-
-        // Get items after applying changes
-        $updatedItems = array_values($currentItemsMap);
-
-        // Group items by PaymentTransactionId
-        $groupedItems = [];
-        foreach ($updatedItems as $item) {
-            if (!isset($groupedItems[$item->PaymentTransactionId])) {
-                $groupedItems[$item->PaymentTransactionId] = [];
-            }
-            $groupedItems[$item->PaymentTransactionId][] = $item;
-        }
-
-        // Create UpdateDto objects for each group
-        $updates = [];
-        foreach ($groupedItems as $paymentTransactionId => $items) {
-            $updates[] = new UpdateDto(
-                PaymentTransactionId: $paymentTransactionId,
-                OrderItems: $items
-            );
-        }
-
-        // Create UpdateItemsDto
-        return new UpdateItemsDto(
-            OrderId: $this->orderId() ?? 0,
-            Currency: $this->currency() ?? 'NOK',
-            Updates: $updates
-        );
     }
 
+    /**
+     * @throws QliroException
+     */
     public function buildReturnDto(OrderReturns $changes): ReturnItemsDto
     {
-        $refundAbleItems = $this->itemsEligableForRefund();
-
-        // Create a map of captured items by merchant reference and price
-        $refundableItemsMap = [];
-        foreach ($refundAbleItems as $item) {
-            $key = $item->MerchantReference . '_' . $item->PricePerItemIncVat;
-            if (!isset($refundableItemsMap[$key])) {
-                $refundableItemsMap[$key] = [];
-            }
-            $refundableItemsMap[$key][] = $item;
-        }
-
-        // Group returns by PaymentTransactionId
-        $returnsByTransaction = [];
-
-        foreach ($changes->getReturns() as $return) {
-            $key = $return->MerchantReference . '_' . $return->PricePerItemIncVat;
-
-            // Check if the item exists in captured items
-            if (!isset($refundableItemsMap[$key])) {
-                throw new QliroException(
-                    "Item with MerchantReference '{$return->MerchantReference}' and price {$return->PricePerItemIncVat} not found in captured items"
-                );
-            }
-
-            // Calculate total captured quantity for this item
-            $totalCapturedQty = 0;
-            foreach ($refundableItemsMap[$key] as $capturedItem) {
-                $totalCapturedQty += $capturedItem->Quantity;
-            }
-
-            // Check if return quantity is valid
-            if ($return->Quantity > $totalCapturedQty) {
-                throw new QliroException(
-                    "Return quantity {$return->Quantity} exceeds total captured quantity {$totalCapturedQty} for item with MerchantReference '{$return->MerchantReference}' and price {$return->PricePerItemIncVat}"
-                );
-            }
-
-            // Distribute return quantity across captured items
-            $remainingQty = $return->Quantity;
-            foreach ($refundableItemsMap[$key] as $capturedItem) {
-                if ($remainingQty <= 0) {
-                    break;
-                }
-
-                // Determine quantity to return from this captured item
-                $qtyToReturn = min($remainingQty, $capturedItem->Quantity);
-                $remainingQty -= $qtyToReturn;
-
-                // Add to returns by transaction
-                $transactionId = $capturedItem->PaymentTransactionId;
-                if (!isset($returnsByTransaction[$transactionId])) {
-                    $returnsByTransaction[$transactionId] = [];
-                }
-
-                // Create a new OrderItemDto for the return
-                $returnsByTransaction[$transactionId][] = new OrderItemDto(
-                    Description: $capturedItem->Description,
-                    MerchantReference: $capturedItem->MerchantReference,
-                    PaymentTransactionId: $capturedItem->PaymentTransactionId,
-                    PricePerItemExVat: $capturedItem->PricePerItemExVat,
-                    PricePerItemIncVat: $capturedItem->PricePerItemIncVat,
-                    Quantity: $qtyToReturn,
-                    Type: $capturedItem->Type,
-                    VatRate: $capturedItem->VatRate
-                );
-            }
-        }
-
-        // Create ReturnDto objects for each transaction
-        $returns = [];
-        foreach ($returnsByTransaction as $transactionId => $items) {
-            $returns[] = new ReturnDto(
-                PaymentTransactionId: $transactionId,
-                OrderItems: $items
-            );
-        }
-
-        // Create ReturnItemsDto
-        return new ReturnItemsDto(
-            OrderId: $this->orderId() ?? 0,
-            Currency: $this->currency() ?? 'NOK',
-            Returns: $returns
-        );
+        return new OrderReturnDtoBuilder($this)->build($changes);
     }
 
     public function buildCaptureDto(OrderCaptures $captures): MarkItemsAsShippedDto
