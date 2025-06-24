@@ -2,6 +2,7 @@
 
 namespace Gets\QliroApi\Models;
 
+use Gets\QliroApi\Builders\OrderUpdateDtoBuilder;
 use Gets\QliroApi\Dtos\Order\AddressDto;
 use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Dtos\Order\CustomerDto;
@@ -203,6 +204,7 @@ class Order
 
     public function buildUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
+         return new OrderUpdateDtoBuilder($this)->build($changes);
         // Get reserved items
         $currentItems = $this->itemsEligableForCapture();
 
