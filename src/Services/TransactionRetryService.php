@@ -3,6 +3,7 @@
 namespace Gets\QliroApi\Services;
 
 use Gets\QliroApi\Api\QliroApi;
+use Gets\QliroApi\Dtos\Transaction\NewlyCreatedTransactionDto;
 use Gets\QliroApi\Enums\PaymentTransactionStatus;
 use Gets\QliroApi\Exceptions\QliroException;
 use Gets\QliroApi\Models\Order;
@@ -82,9 +83,9 @@ class TransactionRetryService
     /**
      * Retry a single transaction
      */
-    private function retryTransaction(string $orderRef, array $transaction): array
+    private function retryTransaction(string $orderRef, NewlyCreatedTransactionDto $transaction): array
     {
-        $paymentTransactionId = $transaction['PaymentTransactionId'];
+        $paymentTransactionId = $transaction->PaymentTransactionId;
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
         // Skip if transaction is now successful
@@ -98,12 +99,12 @@ class TransactionRetryService
 
         $changes = $order->getChangesBasedOnTransaction($paymentTransactionId);
         $retryDto = $order->buildReturnDto($changes);
-        $retryResponse = $this->client->admin()->orders()->returnItems($retryDto)->response->json();
+        $retryResponse = $this->client->admin()->orders()->returnItems($retryDto)->dto;
 
         return [
             'transaction_id'   => $paymentTransactionId,
             'status'           => 'retried',
-            'new_transactions' => $retryResponse['PaymentTransactions'] ?? [],
+            'new_transactions' => $retryResponse->PaymentTransactions,
         ];
     }
 

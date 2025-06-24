@@ -21,7 +21,7 @@ class OrderUpdateDtoBuilder
     public function build(OrderChanges $changes): UpdateItemsDto
     {
         // Get reserved items
-        $currentItems = $this->order->itemsEligableForCapture();
+        $currentItems = $this->order->itemsCurrent();
 
         // Create a map of current items by merchant reference and price
         $currentItemsMap = [];
