@@ -8,6 +8,7 @@ use Gets\QliroApi\Dtos\Order\ReturnItemsDto;
 use Gets\QliroApi\Exceptions\QliroException;
 use Gets\QliroApi\Models\Order;
 use Gets\QliroApi\Models\OrderChanges;
+use Gets\QliroApi\Models\OrderReturns;
 
 class OrderReturnDtoBuilder
 {
@@ -18,7 +19,7 @@ class OrderReturnDtoBuilder
         $this->order = $order;
     }
 
-    public function build(OrderChanges $changes): ReturnItemsDto
+    public function build(OrderReturns $returns): ReturnItemsDto
     {
         $refundAbleItems = $this->order->itemsEligableForRefund();
 
@@ -35,7 +36,7 @@ class OrderReturnDtoBuilder
         // Group returns by PaymentTransactionId
         $returnsByTransaction = [];
 
-        foreach ($changes->getReturns() as $return) {
+        foreach ($returns->getReturns() as $return) {
             $key = $return->MerchantReference . '_' . $return->PricePerItemIncVat;
 
             // Check if the item exists in captured items
@@ -90,9 +91,9 @@ class OrderReturnDtoBuilder
         }
 
         // Create ReturnDto objects for each transaction
-        $returns = [];
+        $rets = [];
         foreach ($returnsByTransaction as $transactionId => $items) {
-            $returns[] = new ReturnDto(
+            $rets[] = new ReturnDto(
                 PaymentTransactionId: $transactionId,
                 OrderItems: $items
             );
@@ -102,7 +103,7 @@ class OrderReturnDtoBuilder
         return new ReturnItemsDto(
             OrderId: $this->order->orderId() ?? 0,
             Currency: $this->order->currency() ?? 'NOK',
-            Returns: $returns
+            Returns: $rets
         );
     }
 }

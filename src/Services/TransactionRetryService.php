@@ -116,7 +116,7 @@ class TransactionRetryService
         $failedTransactions = [];
 
         foreach ($transactions as $transaction) {
-            $paymentTransactionId = $transaction['PaymentTransactionId'];
+            $paymentTransactionId = $transaction->PaymentTransactionId;
             if ($order->getTransactionStatus($paymentTransactionId) !== PaymentTransactionStatus::Success->value) {
                 $failedTransactions[] = $transaction;
             }
