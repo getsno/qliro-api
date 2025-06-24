@@ -10,13 +10,8 @@ use Gets\QliroApi\Dtos\Order\AdminOrderDetailsDto;
 use Gets\QliroApi\Dtos\Order\CustomerDto;
 use Gets\QliroApi\Dtos\Order\MarkItemsAsShippedDto;
 use Gets\QliroApi\Dtos\Order\OrderItemDto;
-use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
-use Gets\QliroApi\Dtos\Order\ReturnDto;
 use Gets\QliroApi\Dtos\Order\ReturnItemsDto;
-use Gets\QliroApi\Dtos\Order\ShipmentDto;
-use Gets\QliroApi\Dtos\Order\UpdateDto;
 use Gets\QliroApi\Dtos\Order\UpdateItemsDto;
-use Gets\QliroApi\Enums\OrderChangeType;
 use Gets\QliroApi\Enums\OrderStatus;
 use Gets\QliroApi\Enums\PaymentTransactionType;
 use Gets\QliroApi\Exceptions\QliroException;
@@ -206,7 +201,7 @@ class Order
 
     public function buildUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
-         return new OrderUpdateDtoBuilder($this)->build($changes);
+        return (new OrderUpdateDtoBuilder($this))->build($changes);
     }
 
     /**
@@ -214,12 +209,12 @@ class Order
      */
     public function buildReturnDto(OrderReturns $changes): ReturnItemsDto
     {
-        return new OrderReturnDtoBuilder($this)->build($changes);
+        return (new OrderReturnDtoBuilder($this))->build($changes);
     }
 
     public function buildCaptureDto(OrderCaptures $captures): MarkItemsAsShippedDto
     {
-        return new OrderCaptureDtoBuilder($this)->build($captures);
+        return (new OrderCaptureDtoBuilder($this))->build($captures);
     }
 
     /**

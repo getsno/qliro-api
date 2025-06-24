@@ -22,10 +22,10 @@ class ExamplesTest extends QliroApiTestCase
     public function testCapture(): void
     {
         $this->markTestSkipped();
-        $orderRef = 'V89AT3KM';
+        $orderRef = 'YNBA2T6G';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
         $captures = new OrderCaptures();
-        $captures->add('7057321129814', 75, 5);
+        $captures->add('7057320107974', 25, 1);
         $dto = $order->buildCaptureDto($captures);
         $result = $this->client->admin()->orders()->markItemsAsShipped($dto)->dto;
         $retryTransactions = new TransactionRetryService($this->client);
@@ -50,10 +50,11 @@ class ExamplesTest extends QliroApiTestCase
     public function testUpdate(): void
     {
         $this->markTestSkipped();
-        $orderRef = 'PUM7HW73';
+        $orderRef = 'YNBA2T6G';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
         $updates = new OrderChanges();
         $updates->decrease('7057320926803', 99, 1);
+        $updates->decrease('7057320108056', 25, 1);
         $dto = $order->buildUpdateDto($updates);
         if (empty($dto->Updates)) {
             $result = $this->client->admin()->orders()->cancelOrder($dto->OrderId)->dto;
