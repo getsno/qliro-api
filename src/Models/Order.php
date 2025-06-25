@@ -113,6 +113,11 @@ class Order
         return $this->paymentTransactions->getStatus($paymentTransactionId);
     }
 
+    public function getTransactionType(int $paymentTransactionId): ?string
+    {
+        return $this->paymentTransactions->getType($paymentTransactionId);
+    }
+
     public function amountOriginal(): float
     {
         return $this->amountCalculator->original();

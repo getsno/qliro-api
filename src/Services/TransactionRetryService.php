@@ -7,6 +7,8 @@ use Gets\QliroApi\Dtos\Transaction\NewlyCreatedTransactionDto;
 use Gets\QliroApi\Enums\PaymentTransactionStatus;
 use Gets\QliroApi\Exceptions\QliroException;
 use Gets\QliroApi\Models\Order;
+use Gets\QliroApi\Models\OrderCaptures;
+use Gets\QliroApi\Models\OrderReturns;
 
 class TransactionRetryService
 {
@@ -57,7 +59,7 @@ class TransactionRetryService
 
                 } catch (\Exception $e) {
                     $finalResults[] = [
-                        'transaction_id' => $transaction['PaymentTransactionId'],
+                        'transaction_id' => $transaction->PaymentTransactionId,
                         'status'         => 'failed',
                         'error'          => $e->getMessage(),
                         'retry_count'    => $retryCount,
@@ -71,10 +73,22 @@ class TransactionRetryService
         // Handle any remaining failed transactions
         foreach ($transactionsToRetry as $transaction) {
             $finalResults[] = [
-                'transaction_id' => $transaction['PaymentTransactionId'],
+                'transaction_id' => $transaction->PaymentTransactionId,
                 'status'         => 'exhausted_retries',
                 'retry_count'    => $retryCount,
             ];
+        }
+        // Check for exhausted retries and throw exception if found
+        foreach ($finalResults as $result) {
+            if ($result['status'] === 'exhausted_retries') {
+                throw new QliroException(
+                    sprintf(
+                        'Transaction retry exhausted for transaction ID %s after %d attempts',
+                        $result['transaction_id'],
+                        $result['retry_count']
+                    )
+                );
+            }
         }
 
         return $finalResults;
@@ -82,6 +96,7 @@ class TransactionRetryService
 
     /**
      * Retry a single transaction
+     * @throws QliroException
      */
     private function retryTransaction(string $orderRef, NewlyCreatedTransactionDto $transaction): array
     {
@@ -97,9 +112,16 @@ class TransactionRetryService
             ];
         }
 
-        $changes = $order->getChangesBasedOnTransaction($paymentTransactionId);
-        $retryDto = $order->buildReturnDto($changes);
-        $retryResponse = $this->client->admin()->orders()->returnItems($retryDto)->dto;
+        $changes = $order->getChangesBasedOnTransaction($paymentTransactionId);    // Build appropriate DTO based on the type of changes
+        if ($changes instanceof OrderReturns) {
+            $retryDto = $order->buildReturnDto($changes);
+            $retryResponse = $this->client->admin()->orders()->returnItems($retryDto)->dto;
+        } elseif ($changes instanceof OrderCaptures) {
+            $retryDto = $order->buildCaptureDto($changes);
+            $retryResponse = $this->client->admin()->orders()->markItemsAsShipped($retryDto)->dto;
+        } else {
+            throw new QliroException('Unsupported change type: ' . get_class($changes));
+        }
 
         return [
             'transaction_id'   => $paymentTransactionId,

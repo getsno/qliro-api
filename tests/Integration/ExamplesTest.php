@@ -3,11 +3,14 @@
 namespace Gets\QliroApi\Tests\Integration;
 
 use Gets\QliroApi\Api\QliroApi;
+use Gets\QliroApi\Exceptions\QliroException;
 use Gets\QliroApi\Models\OrderCaptures;
 use Gets\QliroApi\Models\OrderChanges;
 use Gets\QliroApi\Models\OrderReturns;
 use Gets\QliroApi\Services\TransactionRetryService;
 use Gets\QliroApi\Tests\QliroApiTestCase;
+use Saloon\Exceptions\Request\FatalRequestException;
+use Saloon\Exceptions\Request\RequestException;
 
 class ExamplesTest extends QliroApiTestCase
 {
@@ -22,17 +25,24 @@ class ExamplesTest extends QliroApiTestCase
     public function testCapture(): void
     {
         $this->markTestSkipped();
-        $orderRef = 'YNBA2T6G';
+        $orderRef = '87GW2Y8K';
         $order = $this->client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
         $captures = new OrderCaptures();
-        $captures->add('7057320107974', 25, 1);
+        $captures->add('7057320926803', 99, 1);
+        $captures->add('7321464252051', 200, 1);
         $dto = $order->buildCaptureDto($captures);
         $result = $this->client->admin()->orders()->markItemsAsShipped($dto)->dto;
         $retryTransactions = new TransactionRetryService($this->client);
         $retryResults = $retryTransactions->processFailedTransactions($orderRef, $result->PaymentTransactions);
+
         $test = 1;
     }
 
+    /**
+     * @throws QliroException
+     * @throws FatalRequestException
+     * @throws RequestException
+     */
     public function testRefund(): void
     {
         $this->markTestSkipped();

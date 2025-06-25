@@ -24,7 +24,7 @@ class OrderPaymentTransactions
         if ($this->transactions === null) {
             return null;
         }
-        
+
         return array_filter($this->transactions, static function (PaymentTransactionDto $transaction) {
             return $transaction->Status === PaymentTransactionStatus::Success->value;
         });
@@ -35,18 +35,23 @@ class OrderPaymentTransactions
         if (!$this->transactions) {
             return null;
         }
-        
+
         foreach ($this->transactions as $transaction) {
             if ($transaction->PaymentTransactionId === $paymentTransactionId) {
                 return $transaction;
             }
         }
-        
+
         return null;
     }
 
     public function getStatus(int $paymentTransactionId): ?string
     {
         return $this->findById($paymentTransactionId)?->Status;
+    }
+
+    public function getType(int $paymentTransactionId): ?string
+    {
+        return $this->findById($paymentTransactionId)?->Type;
     }
 }
