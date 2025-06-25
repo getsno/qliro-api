@@ -30,6 +30,7 @@ class TransactionRetryService
      */
     public function processFailedTransactions(string $orderRef, array $initialTransactions): array
     {
+        sleep(1); // give some time to qliro to process newly created transaction
         $transactionsToRetry = $this->collectFailedTransactions($orderRef, $initialTransactions);
         $retryCount = 0;
         $finalResults = [];

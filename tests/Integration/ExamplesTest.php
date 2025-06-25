@@ -33,9 +33,7 @@ class ExamplesTest extends QliroApiTestCase
         $dto = $order->buildCaptureDto($captures);
         $result = $this->client->admin()->orders()->markItemsAsShipped($dto)->dto;
         $retryTransactions = new TransactionRetryService($this->client);
-        $retryResults = $retryTransactions->processFailedTransactions($orderRef, $result->PaymentTransactions);
-
-        $test = 1;
+        $retryTransactions->processFailedTransactions($orderRef, $result->PaymentTransactions);
     }
 
     /**
