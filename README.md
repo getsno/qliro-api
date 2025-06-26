@@ -2,8 +2,27 @@
 
 A PHP client for the Qliro API, built using the [Saloon PHP package](https://github.com/saloonphp/saloon).
 
-## Installation
+## Project Overview
 
+The Qliro API client is a PHP library that provides integration with Qliro's payment and order management services. It supports both the Merchant API (for order and payment operations) and Admin API (for user management and reporting).
+
+## Tech Stack
+
+- PHP 8.1+
+- GuzzleHTTP 7.0+ for HTTP requests
+- PHPUnit 10.0+ for testing
+- Mockery 1.5+ for mocking in tests
+- Saloon PHP package for API interactions
+
+## Installation
+Add repo to composer.json:
+
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/getsno/qliro-api.git"
+        }
+    ]
 ```bash
 composer require getsno/qliro-api
 ```
@@ -200,6 +219,16 @@ To skip tests that make actual API calls:
 
 ```bash
 SKIP_ACTUAL_API_CALLS=true vendor/bin/phpunit
+```
+
+To run tests with actual API credentials:
+1. Copy `tests/config.php.example` to `tests/config.php`
+2. Update `config.php` with your API credentials
+3. Run tests normally
+
+Alternatively, provide credentials via environment variables:
+```bash
+QLIRO_API_KEY=your_api_key QLIRO_API_SECRET=your_api_secret vendor/bin/phpunit
 ```
 
 ### Mock Client for Testing
