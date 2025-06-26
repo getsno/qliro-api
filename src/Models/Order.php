@@ -196,14 +196,6 @@ class Order
         return $this->itemsManager->eligibleForRefund();
     }
 
-    /**
-     * @return OrderItemDto[]
-     */
-    public function itemsEligableForCapture(): array
-    {
-        return $this->itemsManager->eligibleForCapture();
-    }
-
     public function buildUpdateDto(OrderChanges $changes): UpdateItemsDto
     {
         return (new OrderUpdateDtoBuilder($this))->build($changes);

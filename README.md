@@ -14,16 +14,68 @@ composer require getsno/qliro-api
 
 ```php
 use Gets\QliroApi\Api\Config;
-use Gets\QliroApi\Saloon\QliroApi;
+use Gets\QliroApi\Api\QliroApi;
 
 // Create a configuration
 $config = new Config('your-api-key', 'your-api-secret', 'dev'); // Use 'prod' for production
 
 // Create the API client
-$qliroApi = new QliroApi($config);
+$client = new QliroApi($config);
 
 // Use the client
-$order = $qliroApi->merchantOrders()->getOrder('order-123');
+$order = $client->admin()->orders()->getOrderByMerchantReference('order-ref-123')->order;
+```
+
+### Admin API
+
+The Admin API provides methods for administrative operations:
+
+```php
+// Get an order by merchant reference
+$orderRef = 'order-ref-123';
+$order = $client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+
+// Get an order by ID
+$orderId = 123;
+$order = $client->admin()->orders()->getOrder($orderId)->order;
+
+// Cancel an order
+$result = $client->admin()->orders()->cancelOrder($orderId)->dto;
+
+// Mark items as shipped (capture)
+$orderRef = 'order-ref-123';
+$order = $client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+$captures = new \Gets\QliroApi\Models\OrderCaptures();
+$captures->add('item-ref-1', 99, 1); // merchantReference, pricePerItem, quantity
+$captures->add('item-ref-2', 200, 1);
+$dto = $order->buildCaptureDto($captures);
+$result = $client->admin()->orders()->markItemsAsShipped($dto)->dto;
+
+// Return items (refund)
+$orderRef = 'order-ref-123';
+$order = $client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+$returns = new \Gets\QliroApi\Models\OrderReturns();
+$returns->add('item-ref-1', 75, 1); // merchantReference, pricePerItem, quantity
+$returns->add('item-ref-2', 75, 1);
+$dto = $order->buildReturnDto($returns);
+$result = $client->admin()->orders()->returnItems($dto)->dto;
+
+// Update order items
+$orderRef = 'order-ref-123';
+$order = $client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
+$updates = new \Gets\QliroApi\Models\OrderChanges();
+$updates->decrease('item-ref-1', 99, 1); // merchantReference, pricePerItem, quantity
+$updates->decrease('item-ref-2', 25, 1);
+$dto = $order->buildUpdateDto($updates);
+if (empty($dto->Updates)) {
+    $result = $client->admin()->orders()->cancelOrder($dto->OrderId)->dto;
+} else {
+    $result = $client->admin()->orders()->updateItems($dto)->dto;
+}
+
+// Retry failed transactions
+$retryTransactions = new \Gets\QliroApi\Services\TransactionRetryService($client);
+$retryResults = $retryTransactions->processFailedTransactions($orderRef, $result->PaymentTransactions);
 ```
 
 ### Merchant API
@@ -32,56 +84,57 @@ The Merchant API provides methods for managing orders:
 
 ```php
 // Get an order by ID
-$order = $qliroApi->merchantOrders()->getOrder('order-123');
+$orderId = 'order-123';
+$order = $client->merchant()->orders()->getOrder($orderId);
 
 // Get an order by merchant reference
-$order = $qliroApi->merchantOrders()->getOrderByMerchantReference('ref-123');
+$merchantRef = 'ref-123';
+$order = $client->merchant()->orders()->getOrderByMerchantReference($merchantRef);
 
 // Create a new order
 $orderData = [
-    'MerchantApiKey' => 'your-api-key', // Optional, will be added automatically if not provided
-    // ... other order data
+    // ... order data
 ];
-$newOrder = $qliroApi->merchantOrders()->createOrder($orderData);
+$newOrder = $client->merchant()->orders()->createOrder($orderData);
 
 // Update an existing order
+$orderId = 'order-123';
 $orderData = [
     // ... order data to update
 ];
-$updated = $qliroApi->merchantOrders()->updateOrder('order-123', $orderData);
+$updated = $client->merchant()->orders()->updateOrder($orderId, $orderData);
 ```
 
-### Admin API
+### Working with Order Models
 
-The Admin API provides methods for administrative operations:
-
-```php
-// Get an order by ID
-$order = $qliroApi->adminOrders()->getOrder('order-123');
-
-// Cancel an order
-$result = $qliroApi->adminOrders()->cancelOrder('order-123');
-
-// Add items to an invoice
-$itemsData = [
-    // ... items data
-];
-$result = $qliroApi->adminOrders()->addOrderItems($itemsData);
-```
-
-### Working with Responses
-
-All API methods return a Saloon `Response` object, which provides methods for working with the response:
+The API returns Order models that provide helpful methods for working with orders:
 
 ```php
-// Get the response as an object
-$order = $qliroApi->merchantOrders()->getOrder('order-123')->json();
+// Get order details
+$orderRef = 'order-ref-123';
+$order = $client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;
 
-// Get the response status code
-$statusCode = $qliroApi->merchantOrders()->getOrder('order-123')->status();
+// Access order properties
+$orderId = $order->orderId();
+$merchantRef = $order->merchantReference();
+$country = $order->country();
+$currency = $order->currency();
 
-// Check if the request was successful
-$isSuccessful = $qliroApi->merchantOrders()->getOrder('order-123')->successful();
+// Access order amounts
+$originalAmount = $order->amountOriginal();
+$capturedAmount = $order->amountCaptured();
+$refundedAmount = $order->amountRefunded();
+$cancelledAmount = $order->amountCancelled();
+$remainingAmount = $order->amountRemaining();
+$totalAmount = $order->amountTotal();
+
+// Access order items
+$currentItems = $order->itemsCurrent();
+$reservedItems = $order->itemsReserved();
+$cancelledItems = $order->itemsCancelled();
+$refundedItems = $order->itemsRefunded();
+$capturedItems = $order->itemsCaptured();
+$eligibleForRefundItems = $order->itemsEligableForRefund();
 ```
 
 ## Error Handling
@@ -90,12 +143,48 @@ The client throws exceptions for API errors. You can catch these exceptions to h
 
 ```php
 use Gets\QliroApi\Exceptions\QliroException;
+use Saloon\Exceptions\Request\FatalRequestException;
+use Saloon\Exceptions\Request\RequestException;
 
 try {
-    $order = $qliroApi->merchantOrders()->getOrder('non-existent-order');
+    $order = $client->admin()->orders()->getOrderByMerchantReference('non-existent-order');
 } catch (QliroException $e) {
-    // Handle the error
+    // Handle Qliro-specific errors
     echo $e->getMessage();
+} catch (RequestException $e) {
+    // Handle request errors (e.g., 4xx responses)
+    echo $e->getMessage();
+} catch (FatalRequestException $e) {
+    // Handle fatal request errors (e.g., connection issues)
+    echo $e->getMessage();
+}
+```
+
+## Transaction Retry Service
+
+The library includes a service for retrying failed transactions:
+
+```php
+use Gets\QliroApi\Services\TransactionRetryService;
+
+// Create the retry service
+$retryService = new TransactionRetryService($client);
+
+// Configure the retry service (optional)
+$retryService->setMaxRetries(5);
+$retryService->setBackoffEnabled(true);
+
+// Process failed transactions
+try {
+    $results = $retryService->processFailedTransactions($orderRef, $paymentTransactions);
+
+    // $results contains information about each retry attempt
+    foreach ($results as $result) {
+        echo "Transaction {$result['transaction_id']}: {$result['status']}\n";
+    }
+} catch (QliroException $e) {
+    // Handle retry failures
+    echo "Retry failed: " . $e->getMessage();
 }
 ```
 
@@ -105,6 +194,37 @@ try {
 
 ```bash
 vendor/bin/phpunit
+```
+
+To skip tests that make actual API calls:
+
+```bash
+SKIP_ACTUAL_API_CALLS=true vendor/bin/phpunit
+```
+
+### Mock Client for Testing
+
+You can use Saloon's mock client for testing:
+
+```php
+use Gets\QliroApi\Api\Config;
+use Gets\QliroApi\Api\QliroApi;
+use Saloon\Http\Faking\MockClient;
+use Saloon\Http\Faking\MockResponse;
+
+// Create a mock client
+$mockClient = new MockClient([
+    // Mock responses for specific requests
+    '*' => MockResponse::make(['status' => 'success'], 200)
+]);
+
+// Create the API client with the mock
+$config = new Config('test-key', 'test-secret', 'dev');
+$client = new QliroApi($config);
+$client->withMockClient($mockClient);
+
+// Now all requests will use the mock client
+$response = $client->admin()->orders()->getOrderByMerchantReference('order-ref-123');
 ```
 
 ## License

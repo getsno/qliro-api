@@ -228,58 +228,6 @@ class OrderItemsManager
     /**
      * @return OrderItemDto[]
      */
-    public function eligibleForCapture(): array
-    {
-        // Get reserved items
-        $reservedItems = $this->reserved();
-
-        // Get cancelled items
-        $cancelledItems = $this->cancelled();
-
-        // Create a map of cancelled items by merchant reference and price
-        $cancelledItemsMap = [];
-        foreach ($cancelledItems as $item) {
-            $key = $item->MerchantReference . '_' . $item->PricePerItemExVat;
-            if (!isset($cancelledItemsMap[$key])) {
-                $cancelledItemsMap[$key] = 0;
-            }
-            $cancelledItemsMap[$key] += $item->Quantity;
-        }
-
-        // Create a result array of items that are reserved but not cancelled
-        // (or where the cancelled quantity is less than the reserved quantity)
-        $captureAble = [];
-        foreach ($reservedItems as $item) {
-            $key = $item->MerchantReference . '_' . $item->PricePerItemExVat;
-            $cancelledQty = $cancelledItemsMap[$key] ?? 0;
-
-            // Skip items that have been fully cancelled
-            if ($cancelledQty >= $item->Quantity) {
-                continue;
-            }
-
-            // Calculate the remaining quantity
-            $remainingQty = $item->Quantity - $cancelledQty;
-
-            // Create a new OrderItemDto with the remaining quantity
-            $captureAble[] = new OrderItemDto(
-                Description: $item->Description,
-                MerchantReference: $item->MerchantReference,
-                PaymentTransactionId: $item->PaymentTransactionId,
-                PricePerItemExVat: $item->PricePerItemExVat,
-                PricePerItemIncVat: $item->PricePerItemIncVat,
-                Quantity: $remainingQty,
-                Type: $item->Type,
-                VatRate: $item->VatRate
-            );
-        }
-
-        return $captureAble;
-    }
-
-    /**
-     * @return OrderItemDto[]
-     */
     public function eligibleForRefund(): array
     {
         $orderItemsCaptured = $this->successfullActionsByType(OrderItemActionType::Ship);
