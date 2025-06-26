@@ -15,12 +15,21 @@ qliro-api/
 ├── src/                      # Source code
 │   ├── Api/                  # API implementation
 │   │   ├── Config.php        # Configuration class
-│   │   ├── QliroClient.php   # Main client class
+│   │   ├── QliroApi.php      # Main client class
+│   │   ├── QliroConnector.php # API connector
+│   │   ├── Requests/         # API request classes
+│   │   ├── Resources/        # API resource classes
+│   │   ├── Responses/        # API response classes
 │   │   └── Services/         # Service implementations
-│   │       ├── AbstractService.php  # Base service class
 │   │       ├── Merchant/     # Merchant API services
 │   │       └── Admin/        # Admin API services
-│   └── Exceptions/           # Exception classes
+│   ├── Builders/             # DTO builders
+│   ├── Dtos/                 # Data Transfer Objects
+│   ├── Enums/                # Enumerations
+│   ├── Exceptions/           # Exception classes
+│   ├── Models/               # Domain models
+│   ├── Services/             # Service classes
+│   └── Traits/               # Shared traits
 ├── tests/                    # Test files
 │   ├── Unit/                 # Unit tests (no API calls)
 │   ├── Integration/          # Integration tests (may make API calls)
@@ -30,7 +39,6 @@ qliro-api/
 ├── composer.json             # Composer dependencies
 ├── phpunit.xml               # PHPUnit configuration
 ├── README.md                 # Project documentation
-└── DESIGN.md                 # Design documentation
 ```
 
 ## Running Tests
@@ -93,11 +101,35 @@ QLIRO_API_KEY=your_api_key QLIRO_API_SECRET=your_api_secret vendor/bin/phpunit
 - Focus on writing clear, self-documenting code rather than relying on comments
 
 ## Common Tasks
-- **Creating a client**: `$client = new QliroClient($config);`
-- **Making API requests**: Use the service methods, e.g., `$client->merchant()->order()->getOrder('order-123');`
-- **Custom API requests**: Use the HTTP methods directly, e.g., `$client->getRequest('/custom/endpoint');`
+- **Creating a client**: `$client = new QliroApi($config);`
+- **Getting an order**: `$order = $client->admin()->orders()->getOrderByMerchantReference($orderRef)->order;`
+- **Capturing items**: 
+  ```php
+  $captures = new \Gets\QliroApi\Models\OrderCaptures();
+  $captures->add('item-ref-1', 99, 1); // merchantReference, pricePerItem, quantity
+  $dto = $order->buildCaptureDto($captures);
+  $result = $client->admin()->orders()->markItemsAsShipped($dto)->dto;
+  ```
+- **Returning items**: 
+  ```php
+  $returns = new \Gets\QliroApi\Models\OrderReturns();
+  $returns->add('item-ref-1', 75, 1); // merchantReference, pricePerItem, quantity
+  $dto = $order->buildReturnDto($returns);
+  $result = $client->admin()->orders()->returnItems($dto)->dto;
+  ```
+- **Updating items**: 
+  ```php
+  $updates = new \Gets\QliroApi\Models\OrderChanges();
+  $updates->decrease('item-ref-1', 99, 1); // merchantReference, pricePerItem, quantity
+  $dto = $order->buildUpdateDto($updates);
+  $result = $client->admin()->orders()->updateItems($dto)->dto;
+  ```
+- **Retrying transactions**: 
+  ```php
+  $retryTransactions = new \Gets\QliroApi\Services\TransactionRetryService($client);
+  $retryResults = $retryTransactions->processFailedTransactions($orderRef, $result->PaymentTransactions);
+  ```
 
 ## Additional Resources
 - See README.md for usage examples
-- See DESIGN.md for architecture details
 - See tests/README.md for detailed testing information
