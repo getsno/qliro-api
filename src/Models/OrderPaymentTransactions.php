@@ -30,6 +30,42 @@ class OrderPaymentTransactions
         });
     }
 
+    public function successfullOnlyAfterLastPreauthorization(): ?array
+    {
+        $successfullTrans = $this->successful();
+        if ($successfullTrans === null) {
+            return null;
+        }
+
+        // Find the last successful preauthorization transaction by timestamp
+        $lastPreauthTimestamp = null;
+        foreach ($successfullTrans as $transaction) {
+            if ($transaction->Type === \Gets\QliroApi\Enums\PaymentTransactionType::Preauthorization->value
+                && $transaction->Timestamp !== null) {
+                if ($lastPreauthTimestamp === null || $transaction->Timestamp > $lastPreauthTimestamp) {
+                    $lastPreauthTimestamp = $transaction->Timestamp;
+                }
+            }
+        }
+
+        // If no successful preauthorization found, return all transactions
+        if ($lastPreauthTimestamp === null) {
+            return $successfullTrans;
+        }
+
+        // Return transactions based on timestamp comparison
+        $result = [];
+
+        foreach ($successfullTrans as $transaction) {
+            if ($transaction->Timestamp >= $lastPreauthTimestamp) {
+                $result[] = $transaction;
+            }
+        }
+
+        return $result;
+    }
+
+
     public function findById(int $paymentTransactionId): ?PaymentTransactionDto
     {
         if (!$this->transactions) {

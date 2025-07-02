@@ -23,7 +23,8 @@ class OrderItemsManager
      */
     public function successfulActions(): ?array
     {
-        $successfulTransactions = $this->transactions->successful();
+//        $successfulTransactions = $this->transactions->successful();
+        $successfulTransactions = $this->transactions->successfullOnlyAfterLastPreauthorization();
         if ($successfulTransactions === null) {
             return null;
         }
@@ -77,11 +78,11 @@ class OrderItemsManager
         $groupedItems = [];
         foreach ($orderItemActions as $action) {
             // Skip actions without required fields
-            if (!$action->MerchantReference || $action->PricePerItemExVat === null || $action->Quantity === null) {
+            if (!$action->MerchantReference || $action->PricePerItemIncVat === null || $action->Quantity === null) {
                 continue;
             }
 
-            // Create a unique key for each item based on MerchantReference and PricePerItemExVat
+            // Create a unique key for each item based on MerchantReference and PricePerItemIncVat
             $itemKey = $action->MerchantReference . '_' . $action->PricePerItemExVat;
 
             if (!isset($groupedItems[$itemKey])) {
