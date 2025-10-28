@@ -23,8 +23,20 @@ class OrderItemsManager
      */
     public function successfulActions(): ?array
     {
-//        $successfulTransactions = $this->transactions->successful();
+        // Get transactions after the last preauthorization
         $successfulTransactions = $this->transactions->successfullOnlyAfterLastPreauthorization();
+        // Also include successful Capture, Reversal, Refund that were before last preauthorization
+        $beforePreauthorization = $this->transactions->successfulCaptureReversalRefundBeforeLastPreauthorization();
+        // Merge both sets of transactions
+
+        if (!empty($beforePreauthorization)) {
+            if ($successfulTransactions !== null) {
+                $successfulTransactions = array_merge($successfulTransactions, $beforePreauthorization);
+            } else {
+                $successfulTransactions = $beforePreauthorization;
+            }
+        }
+
         if ($successfulTransactions === null) {
             return null;
         }
@@ -159,6 +171,7 @@ class OrderItemsManager
 
         return $filteredItems;
     }
+
     /**
      * @return OrderItemDto[]
      */

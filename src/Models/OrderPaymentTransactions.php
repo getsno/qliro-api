@@ -65,6 +65,47 @@ class OrderPaymentTransactions
         return $result;
     }
 
+    public function successfulCaptureReversalRefundBeforeLastPreauthorization(): ?array
+    {
+        $successfullTrans = $this->successful();
+        if ($successfullTrans === null) {
+            return null;
+        }
+
+        // Find the last successful preauthorization transaction by timestamp
+        $lastPreauthTimestamp = null;
+        foreach ($successfullTrans as $transaction) {
+            if ($transaction->Type === \Gets\QliroApi\Enums\PaymentTransactionType::Preauthorization->value
+                && $transaction->Timestamp !== null) {
+                if ($lastPreauthTimestamp === null || $transaction->Timestamp > $lastPreauthTimestamp) {
+                    $lastPreauthTimestamp = $transaction->Timestamp;
+                }
+            }
+        }
+
+        // If no successful preauthorization found, return empty array
+        if ($lastPreauthTimestamp === null) {
+            return [];
+        }
+
+        // Return Capture, Reversal, and Refund transactions that occurred before the last preauthorization
+        $result = [];
+        $allowedTypes = [
+            \Gets\QliroApi\Enums\PaymentTransactionType::Capture->value,
+            \Gets\QliroApi\Enums\PaymentTransactionType::Reversal->value,
+            \Gets\QliroApi\Enums\PaymentTransactionType::Refund->value,
+        ];
+
+        foreach ($successfullTrans as $transaction) {
+            if ($transaction->Timestamp < $lastPreauthTimestamp
+                && in_array($transaction->Type, $allowedTypes, true)) {
+                $result[] = $transaction;
+            }
+        }
+
+        return $result;
+    }
+
 
     public function findById(int $paymentTransactionId): ?PaymentTransactionDto
     {
