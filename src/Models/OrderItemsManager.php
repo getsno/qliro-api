@@ -55,6 +55,31 @@ class OrderItemsManager
     }
 
     /**
+     * Used to properly calculate current items, need to ignore previous captures and returns
+     */
+    public function successfulActionsAfterLastPreauthorization(): ?array
+    {
+        // Get transactions after the last preauthorization
+        $successfulTransactions = $this->transactions->successfullOnlyAfterLastPreauthorization();
+
+        if ($successfulTransactions === null) {
+            return null;
+        }
+
+        $successfulTransIds = array_map(static function (PaymentTransactionDto $transaction) {
+            return $transaction->PaymentTransactionId;
+        }, $successfulTransactions);
+
+        if ($this->orderItemActions === null) {
+            return null;
+        }
+
+        return array_filter($this->orderItemActions, static function ($action) use ($successfulTransIds) {
+            return in_array($action->PaymentTransactionId, $successfulTransIds, true);
+        });
+    }
+
+    /**
      * @return OrderItemActionDto[]
      */
     public function successfullActionsByType(OrderItemActionType $actionType): array
@@ -81,7 +106,7 @@ class OrderItemsManager
      */
     public function current(): array
     {
-        $orderItemActions = $this->successfulActions();
+        $orderItemActions = $this->successfulActionsAfterLastPreauthorization();
         if (!$orderItemActions) {
             return [];
         }
