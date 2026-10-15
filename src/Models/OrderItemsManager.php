@@ -111,7 +111,6 @@ class OrderItemsManager
             return [];
         }
 
-        // Group items by their identity (MerchantReference and PricePerItemExVat)
         $groupedItems = [];
         foreach ($orderItemActions as $action) {
             // Skip actions without required fields
@@ -119,8 +118,7 @@ class OrderItemsManager
                 continue;
             }
 
-            // Create a unique key for each item based on MerchantReference and PricePerItemIncVat
-            $itemKey = $action->MerchantReference . '_' . $action->PricePerItemExVat;
+            $itemKey = $action->MerchantReference . '_' . $action->PricePerItemIncVat;
 
             if (!isset($groupedItems[$itemKey])) {
                 $groupedItems[$itemKey] = [
