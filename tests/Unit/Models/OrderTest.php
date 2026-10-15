@@ -7,7 +7,9 @@ use Gets\QliroApi\Dtos\Order\OrderItemActionDto;
 use Gets\QliroApi\Dtos\Order\PaymentTransactionDto;
 use Gets\QliroApi\Enums\OrderItemActionType;
 use Gets\QliroApi\Enums\PaymentTransactionStatus;
+use Gets\QliroApi\Enums\PaymentTransactionType;
 use Gets\QliroApi\Models\Order;
+use Gets\QliroApi\Models\OrderCaptures;
 use Gets\QliroApi\Tests\QliroApiTestCase;
 
 class OrderTest extends QliroApiTestCase
@@ -413,6 +415,7 @@ class OrderTest extends QliroApiTestCase
                 MerchantReference: 'PROD-1',
                 PaymentTransactionId: 2001, // Different PaymentTransactionId
                 PricePerItemExVat: 100.0,
+                PricePerItemIncVat: 125.0,
                 Quantity: 3
             ),
             new OrderItemActionDto(
@@ -420,6 +423,7 @@ class OrderTest extends QliroApiTestCase
                 MerchantReference: 'PROD-1',
                 PaymentTransactionId: 3001, // Different PaymentTransactionId
                 PricePerItemExVat: 100.0,
+                PricePerItemIncVat: 125.0,
                 Quantity: 2
             ),
 
@@ -440,6 +444,7 @@ class OrderTest extends QliroApiTestCase
                 MerchantReference: 'PROD-2',
                 PaymentTransactionId: 2002, // Different PaymentTransactionId
                 PricePerItemExVat: 200.0,
+                PricePerItemIncVat: 240.0,
                 Quantity: 5
             ),
 
@@ -529,6 +534,76 @@ class OrderTest extends QliroApiTestCase
         $this->assertEquals('Product', $item4->Type);
         $this->assertEquals(25.0, $item4->VatRate);
         $this->assertEquals(1004, $item4->PaymentTransactionId); // Should use Reserve action's PaymentTransactionId
+    }
+
+    public function testCurrentOrderItemsKeepsLinesWhoseIncVatPriceDiffersByOneOre(): void
+    {
+        $paymentTransactions = [
+            new PaymentTransactionDto(
+                PaymentTransactionId: 1001,
+                Status: PaymentTransactionStatus::Success->value,
+                Timestamp: '2026-10-14T10:00:00',
+                Type: PaymentTransactionType::Preauthorization->value
+            ),
+        ];
+
+        // A 3-for-2 line split so that quantity × price adds up to the paid total exactly:
+        // both lines round to the same ex-VAT price, so only the inc-VAT price tells them apart
+        $actions = [
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Socks',
+                MerchantReference: '7057320926803',
+                PaymentTransactionId: 1001,
+                PricePerItemExVat: 7.53,
+                PricePerItemIncVat: 8.67,
+                Quantity: 2,
+                Type: 'Product',
+                VatRate: 15.0
+            ),
+            new OrderItemActionDto(
+                ActionType: OrderItemActionType::Reserve->value,
+                Description: 'Socks',
+                MerchantReference: '7057320926803',
+                PaymentTransactionId: 1001,
+                PricePerItemExVat: 7.53,
+                PricePerItemIncVat: 8.66,
+                Quantity: 1,
+                Type: 'Product',
+                VatRate: 15.0
+            ),
+        ];
+
+        $order = new Order(new AdminOrderDetailsDto(
+            OrderId: 285296358,
+            Currency: 'NOK',
+            PaymentTransactions: $paymentTransactions,
+            OrderItemActions: $actions
+        ));
+
+        $currentItems = $order->itemsCurrent();
+
+        $this->assertCount(2, $currentItems);
+        $quantitiesByIncVatPrice = [];
+        foreach ($currentItems as $item) {
+            $quantitiesByIncVatPrice[(string)$item->PricePerItemIncVat] = $item->Quantity;
+        }
+        $this->assertSame(['8.67' => 2, '8.66' => 1], $quantitiesByIncVatPrice);
+
+        $captures = (new OrderCaptures())
+            ->add('7057320926803', 8.67, 2)
+            ->add('7057320926803', 8.66, 1);
+
+        $captureDto = $order->buildCaptureDto($captures);
+
+        $this->assertCount(1, $captureDto->Shipments);
+        $shipment = $captureDto->Shipments[0];
+        $this->assertSame(1001, $shipment->PaymentTransactionId);
+        $this->assertCount(2, $shipment->OrderItems);
+        $this->assertSame(8.67, $shipment->OrderItems[0]->PricePerItemIncVat);
+        $this->assertSame(2, $shipment->OrderItems[0]->Quantity);
+        $this->assertSame(8.66, $shipment->OrderItems[1]->PricePerItemIncVat);
+        $this->assertSame(1, $shipment->OrderItems[1]->Quantity);
     }
     /**
      * Test getUpdateDto with various order changes
@@ -639,7 +714,7 @@ class OrderTest extends QliroApiTestCase
         // Verify the remaining item (PROD-1)
         $item = $update->OrderItems[0];
         $this->assertEquals('PROD-1', $item->MerchantReference);
-        $this->assertEquals(10, $item->Quantity); // Full quantity from Reserve action
+        $this->assertEquals(5, $item->Quantity); // 10 reserved - 3 shipped - 2 released
         $this->assertEquals(100.0, $item->PricePerItemExVat);
 
         // Test 2: Decrease quantity of an item
@@ -668,7 +743,7 @@ class OrderTest extends QliroApiTestCase
         // Verify the decreased item
         $decreasedItem = $updateProd1->OrderItems[0];
         $this->assertEquals('PROD-1', $decreasedItem->MerchantReference);
-        $this->assertEquals(8, $decreasedItem->Quantity); // 10 - 2 = 8
+        $this->assertEquals(3, $decreasedItem->Quantity); // 5 - 2 = 3
 
         // Find the UpdateDto for PaymentTransactionId 1002 (PROD-2)
         $updateProd2 = null;
